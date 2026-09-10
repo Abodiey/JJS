@@ -20,7 +20,7 @@ local cloneref = cloneref
 local CoreGui = cloneref(game:GetService("CoreGui"))
 local Players = cloneref(game:GetService("Players"))
 
-local BaseUrl = "https://raw.githubusercontent.com/Abodiey/JJS/main/"
+local BaseUrl = "https://api.github.com/repos/Abodiey/JJS/contents/"
 
 local SettingsFolder = CoreGui:FindFirstChild("CatstarSettings")
 if SettingsFolder then SettingsFolder:Destroy() end
@@ -117,7 +117,7 @@ getgenv().CatstarState = StateStructure
 local CatstarState = StateStructure
 
 local function Load(Name)
-    local Url = BaseUrl .. Name .. ".lua"
+    local Url = BaseUrl .. Name .. ".lua?ref=main"
     local MaxRetries = 5
     local DelayTime = 1 + math.random()
     local Response = nil
@@ -127,7 +127,12 @@ local function Load(Name)
         local ReqSuccess, ReqResponse = pcall(function()
             return request({
                 Url = Url,
-                Method = "GET"
+                Method = "GET",
+                Headers = {
+                    Accept = "application/vnd.github.raw+json",
+                    ["X-GitHub-Api-Version"] = "2022-11-28",
+                    ["Cache-Control"] = "no-cache"
+                }
             })
         end)
 

@@ -1,10 +1,18 @@
-local Url = "https://raw.githubusercontent.com/Abodiey/JJS/main/main.lua"
+local Url = "https://api.github.com/repos/Abodiey/JJS/contents/main.lua?ref=main"
 local MaxRetries = 3
 local Delay = 1
 local Response = nil
 
 for Attempt = 1, MaxRetries do
-    local Ok, Res = pcall(request, { Url = Url, Method = "GET" })
+    local Ok, Res = pcall(request, {
+        Url = Url,
+        Method = "GET",
+        Headers = {
+            Accept = "application/vnd.github.raw+json",
+            ["X-GitHub-Api-Version"] = "2022-11-28",
+            ["Cache-Control"] = "no-cache"
+        }
+    })
     if Ok and type(Res) == "table" and Res.StatusCode == 200 then
         Response = Res
         break
