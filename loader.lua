@@ -1,4 +1,4 @@
-local Url = "https://api.github.com/repos/Abodiey/JJS/contents/main.lua?ref=main"
+local Url = "https://api.github.com/repos/Abodiey/JJS/contents/bundle.lua?ref=main"
 local MaxRetries = 3
 local Delay = 1
 local Response = nil

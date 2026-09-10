@@ -1,0 +1,42 @@
+name: Bundle Lua
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.lua'
+      - '!bundle.lua'
+      - '!loader.lua'
+      - 'tools/bundle.py'
+      - '.github/workflows/bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bundle-main
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Generate and commit bundle
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            python3 tools/bundle.py
+            git add bundle.lua
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m "Update bundle.lua"
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          exit 1
