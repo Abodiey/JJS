@@ -14,7 +14,7 @@ def quote(source):
 def build(root):
     sources = {
         path.stem: path.read_bytes().decode("utf-8")
-        for path in sorted(root.glob("*.lua"))
+        for path in sorted(root.glob("*.lua"), key=lambda path: path.name)
         if path.name not in {"loader.lua", "bundle.lua"}
     }
     main = sources["main"]
