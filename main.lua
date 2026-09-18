@@ -86,6 +86,8 @@ local ToggleDefaults = {
     InstantInteract = true,
     ItemESP = true, 
     KillSound = true,
+    M1PingFix = true,
+    M1DownslamAssist = true,
     MsgAura = true, 
     Noclip = true, 
     QTE = true,
@@ -95,6 +97,7 @@ local ToggleDefaults = {
 }
 
 local VariableDefaults = {
+    M1JumpDelay = 0.35,
     SpeedMultiplier = 15,
     Reach = 15,
     LockedTarget = nil,
@@ -182,7 +185,7 @@ end)
 local Modules = {}
 local ModuleFailed = {}
 
-local ModuleList = {"ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "Targeting", "KillSound", "DiamondInTheSky"}
+local ModuleList = {"M1PingFix", "M1DownslamAssist", "ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "Targeting", "KillSound", "DiamondInTheSky"}
 
 task.spawn(function()
     while not Players.LocalPlayer do task.wait() end
@@ -222,6 +225,11 @@ task.spawn(function()
 end)
 
 local UiLayout = {
+    {Type = "Section",  Args = {Title = "M1 Assist"}},
+    {Type = "Toggle",   Module = "M1PingFix", Args = {Title = "M1 Ping Fix", Binding = CatstarState.Toggles.M1PingFix, Value = CatstarState.Toggles.M1PingFix.Value, Callback = function(V) CatstarState.Toggles.M1PingFix.Value = V end}},
+    {Type = "Slider",   Module = "M1PingFix", Args = {Title = "M1 Jump Delay (s)", Binding = CatstarState.Variables.M1JumpDelay, Step = 0.01, Value = {Min = 0, Max = 1, Default = CatstarState.Variables.M1JumpDelay.Value}, Callback = function(V) CatstarState.Variables.M1JumpDelay.Value = V end}},
+    {Type = "Toggle",   Module = "M1DownslamAssist", Args = {Title = "M1 Downslam Assist", Binding = CatstarState.Toggles.M1DownslamAssist, Value = CatstarState.Toggles.M1DownslamAssist.Value, Callback = function(V) CatstarState.Toggles.M1DownslamAssist.Value = V end}},
+
     {Type = "Section",  Args = {Title = "Combat Modules"}},
     {Type = "Toggle",   Module = "BlackFlash",        Args = {Title = "Auto BlackFlash", Binding = CatstarState.Toggles.BlackFlash, Value = CatstarState.Toggles.BlackFlash.Value, Callback = function(V) CatstarState.Toggles.BlackFlash.Value = V end}},
     {Type = "Toggle",   Module = "Ratio",             Args = {Title = "Auto Nanami Ratio", Binding = CatstarState.Toggles.Ratio, Value = CatstarState.Toggles.Ratio.Value, Callback = function(V) CatstarState.Toggles.Ratio.Value = V end}},
@@ -244,10 +252,6 @@ local UiLayout = {
     {Type = "Toggle",   Module = "DiamondInTheSky",   Args = {Title = "Faster Diamond In The Sky", Binding = CatstarState.Toggles.DiamondInTheSky, Value = CatstarState.Toggles.DiamondInTheSky.Value, Callback = function(V) CatstarState.Toggles.DiamondInTheSky.Value = V end}},
     {Type = "Slider",   Module = "DiamondInTheSky",   Args = {Title = "Diamond In The Sky Speed", Binding = CatstarState.Variables.SpeedMultiplier, Step = 1, Value = {Min = 1, Max = 50, Default = CatstarState.Variables.SpeedMultiplier.Value}, Callback = function(V) CatstarState.Variables.SpeedMultiplier.Value = V end}},
     
-    {Type = "Section",  Args = {Title = "Utility Mechanics"}},
-    {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
-    {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
-
     {Type = "Section",  Args = {Title = "Visual Mechanics"}},
     {Type = "Toggle",   Module = "ESP",               Args = {Title = "Player ESP", Binding = CatstarState.Toggles.ESP, Value = CatstarState.Toggles.ESP.Value, Callback = function(V) CatstarState.Toggles.ESP.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Tracers", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.Tracers, Value = CatstarState.Toggles.Tracers.Value, Callback = function(V) CatstarState.Toggles.Tracers.Value = V end}},
@@ -262,6 +266,10 @@ local UiLayout = {
     {Type = "Toggle",   Module = "ItemESP",           Args = {Title = "Item ESP", Binding = CatstarState.Toggles.ItemESP, Value = CatstarState.Toggles.ItemESP.Value, Callback = function(V) CatstarState.Toggles.ItemESP.Value = V end}},
     {Type = "Toggle",   Module = "Aura",              Args = {Title = "Message Aura", Binding = CatstarState.Toggles.MsgAura, Value = CatstarState.Toggles.MsgAura.Value, Callback = function(V) CatstarState.Toggles.MsgAura.Value = V end}},
     
+    {Type = "Section",  Args = {Title = "Utility Mechanics"}},
+    {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
+    {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
+
     {Type = "Section",  Args = {Title = "Targeting & Spectating"}},
     {Type = "Input",    Module = "Targeting",        InitName = "None", Args = {Title = "Search Player", Placeholder = "Enter name...", Value = CatstarState.Variables.TargetIdentifier.Value, Callback = function(T) CatstarState.Variables.TargetIdentifier.Value = T end}},
     {Type = "Button",   Module = "Targeting",        InitName = "None", Args = {Title = "Spectate", Callback = function() if Modules.Targeting then Modules.Targeting.Clicked(CatstarState) end end}},
@@ -271,23 +279,11 @@ local UiLayout = {
     {Type = "Toggle",   Module = "KillSound",         Args = {Title = "Free Kill Sound", Binding = CatstarState.Toggles.KillSound, Value = CatstarState.Toggles.KillSound.Value, Callback = function(V) CatstarState.Toggles.KillSound.Value = V end}},
 }
 
-local Tabs = {}
-for _, Name in ipairs({"Combat", "Movement", "Visuals", "Utility"}) do
-    Tabs[Name] = Window:Tab({Title = Name})
-end
-local Sections = {
-    ["Combat Modules"] = "Combat", ["Aimbot Settings"] = "Combat",
-    ["Movement & Protection"] = "Movement", ["Emote Exploits"] = "Movement",
-    ["Visual Mechanics"] = "Visuals", ["Utility Mechanics"] = "Utility",
-    ["Targeting & Spectating"] = "Utility", ["Unlocks"] = "Utility",
-}
 local InitializedModules = {}
 local Pending = 0
 local Failures = {}
-local MainTab
 for _, Element in ipairs(UiLayout) do
-    if Element.Type == "Section" then MainTab = Tabs[Sections[Element.Args.Title]] end
-    local Component = MainTab[Element.Type](MainTab, Element.Args)
+    local Component = Window:Add(Element.Type, Element.Args)
     local TargetModule = Element.Module
     if TargetModule then
         Pending = Pending + 1
@@ -317,7 +313,7 @@ for _, Element in ipairs(UiLayout) do
         end)
     end
 end
-Tabs.Combat:Select()
+Window:Refresh()
 Window:SetStatus("Loading modules...")
 task.spawn(function()
     while Pending > 0 do task.wait() end
