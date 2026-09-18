@@ -2864,12 +2864,172 @@ end
 
 return KillSound
 ]=],
+    ["M1DownslamAssist"] = [=[
+local M1DownslamAssist = {}
+
+local RunService = cloneref(game:GetService("RunService"))
+local Players = cloneref(game:GetService("Players"))
+local LocalPlayer = Players.LocalPlayer
+
+function M1DownslamAssist.Init(State)
+    local toggleObject = State.Toggles.M1DownslamAssist
+    local connections = {}
+    local currentCharacter
+    local generation = 0
+    local sequence = 0
+
+    local function clearCharacter()
+        generation = generation + 1
+        sequence = sequence + 1
+        for _, connection in ipairs(connections) do connection:Disconnect() end
+        connections = {}
+        currentCharacter = nil
+    end
+
+    local function setupCharacter(character)
+        clearCharacter()
+        currentCharacter = character
+        local version = generation
+        task.spawn(function()
+            local humanoid = character:WaitForChild("Humanoid", 10)
+            local info = character:WaitForChild("Info", 10)
+            if not humanoid or not info or version ~= generation or LocalPlayer.Character ~= character then return end
+            local lastValue = character:GetAttribute("CurrentM1")
+
+            table.insert(connections, info.ChildAdded:Connect(function(child)
+                if child.Name == "Stun" or child.Name == "Ragdoll" then sequence = sequence + 1 end
+            end))
+            table.insert(connections, character:GetAttributeChangedSignal("CurrentM1"):Connect(function()
+                local value = character:GetAttribute("CurrentM1")
+                local previous = lastValue
+                lastValue = value
+                sequence = sequence + 1
+                if previous ~= 3 or value ~= 4 or not toggleObject.Value then return end
+                local token = sequence
+                local started = os.clock()
+
+                task.spawn(function()
+                    task.wait()
+                    while version == generation and token == sequence and toggleObject.Value
+                        and LocalPlayer.Character == character and character.Parent and info.Parent == character
+                        and humanoid.Parent == character and humanoid.Health > 0 and not character:GetAttribute("Dead")
+                        and not info:FindFirstChild("Stun") and not info:FindFirstChild("Ragdoll")
+                        and os.clock() - started < 1.5 do
+                        if not info:FindFirstChild("NoJump") then
+                            local state = humanoid:GetState()
+                            if state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall then return end
+                            if state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Landed then
+                                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                                state = humanoid:GetState()
+                                if state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall then return end
+                            end
+                        end
+                        RunService.RenderStepped:Wait()
+                    end
+                end)
+            end))
+        end)
+    end
+
+    table.insert(State.Connections, toggleObject:GetPropertyChangedSignal("Value"):Connect(function()
+        sequence = sequence + 1
+    end))
+    table.insert(State.Connections, LocalPlayer.CharacterAdded:Connect(setupCharacter))
+    table.insert(State.Connections, LocalPlayer.CharacterRemoving:Connect(function(character)
+        if character == currentCharacter then clearCharacter() end
+    end))
+    if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
+end
+
+return M1DownslamAssist
+]=],
+    ["M1PingFix"] = [=[
+local M1PingFix = {}
+
+local RunService = cloneref(game:GetService("RunService"))
+local Players = cloneref(game:GetService("Players"))
+local LocalPlayer = Players.LocalPlayer
+
+function M1PingFix.Init(State)
+    local toggleObject = State.Toggles.M1PingFix
+    local delayObject = State.Variables.M1JumpDelay
+    local connections = {}
+    local currentCharacter
+    local generation = 0
+    local cancellation = 0
+
+    local function clearCharacter()
+        generation = generation + 1
+        for _, connection in ipairs(connections) do connection:Disconnect() end
+        connections = {}
+        currentCharacter = nil
+    end
+
+    local function setupCharacter(character)
+        clearCharacter()
+        currentCharacter = character
+        local version = generation
+        task.spawn(function()
+            local info = character:WaitForChild("Info", 10)
+            if not info or version ~= generation or LocalPlayer.Character ~= character then return end
+
+            local function valid(sequence)
+                return version == generation and sequence == cancellation and toggleObject.Value
+                    and LocalPlayer.Character == character and character.Parent and info.Parent == character
+                    and not character:GetAttribute("Dead")
+                    and not info:FindFirstChild("Stun") and not info:FindFirstChild("Ragdoll")
+            end
+
+            table.insert(connections, info.ChildRemoved:Connect(function(child)
+                if child.Name == "InSkill" or child.Name == "NoSprint" then
+                    cancellation = cancellation + 1
+                end
+            end))
+            table.insert(connections, info.ChildAdded:Connect(function(child)
+                if child.Name == "Stun" or child.Name == "Ragdoll" then
+                    cancellation = cancellation + 1
+                end
+            end))
+            table.insert(connections, character:GetAttributeChangedSignal("CurrentM1"):Connect(function()
+                if not toggleObject.Value then return end
+                local start = os.clock()
+                local sequence = cancellation
+                task.wait()
+                if not valid(sequence) then return end
+                local inSkill = info:FindFirstChild("InSkill")
+                local noSprint = info:FindFirstChild("NoSprint")
+                local noJump = info:FindFirstChild("NoJump")
+                if not inSkill or not noSprint or not noJump then return end
+
+                while os.clock() - start < delayObject.Value do
+                    if not valid(sequence) or noJump.Parent ~= info then return end
+                    RunService.RenderStepped:Wait()
+                end
+                if valid(sequence) and inSkill.Parent == info and noSprint.Parent == info and noJump.Parent == info then
+                    noJump:Destroy()
+                end
+            end))
+        end)
+    end
+
+    table.insert(State.Connections, toggleObject:GetPropertyChangedSignal("Value"):Connect(function()
+        cancellation = cancellation + 1
+    end))
+    table.insert(State.Connections, LocalPlayer.CharacterAdded:Connect(setupCharacter))
+    table.insert(State.Connections, LocalPlayer.CharacterRemoving:Connect(function(character)
+        if character == currentCharacter then clearCharacter() end
+    end))
+    if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
+end
+
+return M1PingFix
+]=],
     ["Menu"] = [=[
 local Menu = {}
 
 function Menu.new(Title, ToggleKey)
     local Input = game:GetService("UserInputService")
-    local Window = {Tabs = {}, Connections = {}, Drawings = {}, Visible = true, Destroyed = false}
+    local Window = {Items = {}, Scroll = 0, Connections = {}, Drawings = {}, Visible = true, Destroyed = false}
     local Colors = {
         Background = Color3.fromRGB(16, 19, 25), Sidebar = Color3.fromRGB(21, 25, 33),
         Row = Color3.fromRGB(26, 31, 40), Border = Color3.fromRGB(43, 51, 64),
@@ -2877,9 +3037,11 @@ function Menu.new(Title, ToggleKey)
         Accent = Color3.fromRGB(102, 222, 191), Dark = Color3.fromRGB(13, 40, 34),
     }
     local Position, Width, Height
-    local Active, Focus, Capture, Drag, Slider
+    local Focus, Capture, Drag, Slider, ScrollDrag
     local Status = "Loading modules..."
-    local Hits, Used = {}, 0
+    local Hits, Layer = {}, 0
+    local Pools = {Square = {}, Text = {}}
+    local Used = {Square = 0, Text = 0}
     local Render
 
     local function Connect(Signal, Callback)
@@ -2890,23 +3052,24 @@ function Menu.new(Title, ToggleKey)
 
     local function Measure()
         local Viewport = workspace.CurrentCamera.ViewportSize
-        Width, Height = math.min(680, Viewport.X - 16), math.min(560, Viewport.Y - 16)
+        Width, Height = math.max(1, math.min(560, Viewport.X - 16)), math.max(1, math.min(650, Viewport.Y - 16))
         Position = Position or Vector2.new(math.floor((Viewport.X - Width) / 2), math.floor((Viewport.Y - Height) / 2))
         Position = Vector2.new(math.max(0, math.min(Position.X, Viewport.X - Width)), math.max(0, math.min(Position.Y, Viewport.Y - Height)))
     end
 
     local function Paint(Kind, Properties)
-        Used = Used + 1
-        local Slot = Window.Drawings[Used]
-        if not Slot or Slot.Kind ~= Kind then
-            if Slot then Slot.Object:Remove() end
-            Slot = {Kind = Kind, Object = Drawing.new(Kind)}
-            Window.Drawings[Used] = Slot
+        Used[Kind] = Used[Kind] + 1
+        Layer = Layer + 1
+        local Pool = Pools[Kind]
+        local Object = Pool[Used[Kind]]
+        if not Object then
+            Object = Drawing.new(Kind)
+            Pool[Used[Kind]] = Object
+            Window.Drawings[#Window.Drawings + 1] = {Object = Object}
         end
-        local Object = Slot.Object
         Object.Visible = true
         Object.Transparency = 1
-        Object.ZIndex = 1000 + Used
+        Object.ZIndex = 1000 + Layer
         for Key, Value in pairs(Properties) do Object[Key] = Value end
         return Object
     end
@@ -2956,52 +3119,40 @@ function Menu.new(Title, ToggleKey)
 
     Render = function()
         if Window.Destroyed then return end
-        Hits, Used = {}, 0
+        Hits, Layer = {}, 0
+        Used.Square, Used.Text = 0, 0
         if Window.Visible and workspace.CurrentCamera then
             Measure()
             local X, Y = Position.X, Position.Y
-            local Side = math.min(142, math.floor(Width * 0.24))
-            Box(X + 4, Y + 5, Width, Height, Color3.fromRGB(7, 9, 12))
+            Box(X + 3, Y + 4, Width, Height, Color3.fromRGB(7, 9, 12))
             Box(X, Y, Width, Height, Colors.Border)
             Box(X + 1, Y + 1, Width - 2, Height - 2, Colors.Background)
-            Box(X + 1, Y + 1, Side, Height - 2, Colors.Sidebar)
-            Box(X + 1, Y + 1, Width - 2, 2, Colors.Accent)
-            Text(Title, X + 17, Y + 18, Colors.Text, 18, Side - 20)
-            Text("JJS", X + 18, Y + 42, Colors.Accent, 12)
-            Hit(X, Y, Width - 44, 68, "Drag")
-            Text("_", X + Width - 28, Y + 16, Colors.Muted, 18)
-            Hit(X + Width - 42, Y + 5, 36, 40, "Hide")
-            for Index, Tab in ipairs(Window.Tabs) do
-                local TY = Y + 83 + (Index - 1) * 43
-                if Active == Tab then
-                    Box(X + 9, TY, Side - 17, 34, Colors.Dark)
-                    Box(X + 9, TY + 6, 2, 22, Colors.Accent)
-                end
-                Text(Tab.Title, X + 22, TY + 9, Active == Tab and Colors.Accent or Colors.Muted, 14, Side - 30)
-                Hit(X + 9, TY, Side - 17, 34, "Tab", Tab)
-            end
-            Text(ToggleKey.Name .. "  show / hide", X + 16, Y + Height - 30, Colors.Muted, 11, Side - 20)
-            local Left, Right = X + Side + 18, X + Width - 18
-            Text(Active and Active.Title or "Catstar", Left, Y + 22, Colors.Text, 21, Right - Left - 30)
-            Text("Scroll to browse  /  drag the header to move", Left, Y + 49, Colors.Muted, 11, Right - Left)
-            Box(Left, Y + 70, Right - Left, 1, Colors.Border)
-            local Top, Bottom = Y + 80, Y + Height - 43
-            if Active then
+            Box(X + 1, Y + 1, Width - 2, 3, Colors.Accent)
+            Text(Title, X + 18, Y + 16, Colors.Text, 21, Width - 72)
+            Text("JJS  /  " .. ToggleKey.Name .. " to show or hide", X + 19, Y + 44, Colors.Muted, 12, Width - 50)
+            Hit(X, Y, Width - 44, 66, "Drag")
+            Text("-", X + Width - 29, Y + 15, Colors.Muted, 21)
+            Hit(X + Width - 43, Y + 6, 36, 42, "Hide")
+            local Left, Right = X + 16, X + Width - 16
+            Box(Left, Y + 68, Right - Left, 1, Colors.Border)
+            local Top, Bottom = Y + 76, Y + Height - 42
+            if Bottom > Top then
                 local Total = 0
-                for _, Item in ipairs(Active.Items) do Total = Total + Item.Height end
+                for _, Item in ipairs(Window.Items) do Total = Total + Item.Height end
                 local Space = math.max(1, Bottom - Top)
-                Active.MaxScroll = math.max(0, Total - Space)
-                Active.Scroll = math.max(0, math.min(Active.Scroll, Active.MaxScroll))
-                Hit(Left, Top, Right - Left, Space, "Scroll", Active)
-                local RowY = Top - Active.Scroll
-                for _, Item in ipairs(Active.Items) do
+                Window.MaxScroll = math.max(0, Total - Space)
+                Window.Scroll = math.max(0, math.min(Window.Scroll, Window.MaxScroll))
+                Hit(X, Top, Width, Space, "Scroll", Window)
+                local RowY = Top - Window.Scroll
+                for _, Item in ipairs(Window.Items) do
                     local H = Item.Height
                     if RowY >= Top and RowY + H <= Bottom then
                         local Kind = Item.Kind
                         local Available = Enabled(Item)
                         local Color = Available and Colors.Text or Colors.Muted
                         if Kind == "Section" then
-                            Text(Item.Title, Left + 2, RowY + 8, Colors.Accent, 12, Right - Left - 8)
+                            Box(Left, RowY + 4, Right - Left - 10, 1, Colors.Border)
+                            Text(Item.Title, Left + 2, RowY + 13, Colors.Accent, 13, Right - Left - 8)
                         else
                             Box(Left, RowY + 2, Right - Left - 7, H - 5, Colors.Row)
                             local Indent = Item.Args.Parent and 22 or 12
@@ -3016,7 +3167,7 @@ function Menu.new(Title, ToggleKey)
                             elseif Kind == "Keybind" then
                                 Text(Capture == Item and "..." or Item.Value, Right - 83, RowY + 10, Colors.Accent, 13, 62)
                             elseif Kind == "Slider" then
-                                Text(Item.Value, Right - 54, RowY + 9, Colors.Accent, 13, 37)
+                                Text(Item.Args.Step and Item.Args.Step < 1 and string.format("%.2f", Item.Value) or Item.Value, Right - 66, RowY + 9, Colors.Accent, 13, 49)
                                 local Range = Item.Args.Value
                                 local TrackX, TrackW = Left + 12, Right - Left - 32
                                 local Fraction = (Item.Value - Range.Min) / (Range.Max - Range.Min)
@@ -3033,22 +3184,26 @@ function Menu.new(Title, ToggleKey)
                     end
                     RowY = RowY + H
                 end
-                if Active.MaxScroll > 0 then
+                if Window.MaxScroll > 0 then
                     local Thumb = math.max(20, Space * Space / Total)
                     Box(Right - 3, Top, 2, Space, Colors.Border)
-                    Box(Right - 3, Top + (Space - Thumb) * Active.Scroll / Active.MaxScroll, 2, Thumb, Colors.Accent)
+                    local ThumbTop = Top + (Space - Thumb) * Window.Scroll / Window.MaxScroll
+                    Box(Right - 4, ThumbTop, 4, Thumb, Colors.Accent)
+                    Hit(Right - 9, Top, 12, Space, "ScrollBar", {Top = Top, Space = Space, Thumb = Thumb, ThumbTop = ThumbTop})
                 end
             end
             Box(Left, Y + Height - 38, Right - Left, 1, Colors.Border)
             Text(Status, Left, Y + Height - 26, Colors.Muted, 11, Right - Left)
         end
-        for Index = Used + 1, #Window.Drawings do Window.Drawings[Index].Object.Visible = false end
+        for Kind, Pool in pairs(Pools) do
+            for Index = Used[Kind] + 1, #Pool do Pool[Index].Visible = false end
+        end
     end
 
     function Window:SetVisible(Value)
         self.Visible = Value
         FinishInput(true)
-        Capture, Drag, Slider = nil, nil, nil
+        Capture, Drag, Slider, ScrollDrag = nil, nil, nil, nil
         Render()
     end
 
@@ -3065,35 +3220,23 @@ function Menu.new(Title, ToggleKey)
         self.Connections, self.Drawings = {}, {}
     end
 
-    function Window:Tab(Args)
-        local Tab = {Title = Args.Title, Items = {}, Scroll = 0}
-        self.Tabs[#self.Tabs + 1] = Tab
-        Active = Active or Tab
-        function Tab:Select()
-            FinishInput(true)
-            Capture, Slider = nil, nil
-            Active = self
-            Render()
+    function Window:Refresh() Render() end
+
+    function Window:Add(Kind, Options)
+        local Item = {Kind = Kind, Args = Options, Title = Options.Title, Enabled = true,
+            Height = Kind == "Section" and 40 or ((Kind == "Slider" or Kind == "Input") and 59 or 38)}
+        Item.Value = Kind == "Slider" and Options.Value.Default or Options.Value
+        function Item:SetTitle(Value) self.Title = Value; Render() end
+        function Item:SetDesc(Value) self.Description = Value end
+        function Item:SetEnabled(Value) self.Enabled = Value; Render() end
+        function Item:Set(Value) self.Value = Value; Render() end
+        function Item:SetValue(Value) self:Set(Value) end
+        self.Items[#self.Items + 1] = Item
+        if Options.Binding then
+            Connect(Options.Binding.Changed, function() Item.Value = Options.Binding.Value; Render() end)
         end
-        for _, Kind in ipairs({"Section", "Toggle", "Slider", "Button", "Keybind", "Input"}) do
-            Tab[Kind] = function(_, Options)
-                local Item = {Kind = Kind, Args = Options, Title = Options.Title, Enabled = true,
-                    Height = Kind == "Section" and 30 or ((Kind == "Slider" or Kind == "Input") and 59 or 38)}
-                Item.Value = Kind == "Slider" and Options.Value.Default or Options.Value
-                function Item:SetTitle(Value) self.Title = Value; Render() end
-                function Item:SetDesc(Value) self.Description = Value end
-                function Item:SetEnabled(Value) self.Enabled = Value; Render() end
-                function Item:Set(Value) self.Value = Value; Render() end
-                function Item:SetValue(Value) self:Set(Value) end
-                Tab.Items[#Tab.Items + 1] = Item
-                if Options.Binding then
-                    Connect(Options.Binding.Changed, function() Item.Value = Options.Binding.Value; Render() end)
-                end
-                if Options.Parent then Connect(Options.Parent.Changed, Render) end
-                return Item
-            end
-        end
-        return Tab
+        if Options.Parent then Connect(Options.Parent.Changed, Render) end
+        return Item
     end
 
     local function SetSlider(Item, X)
@@ -3109,8 +3252,9 @@ function Menu.new(Title, ToggleKey)
     Connect(Input.InputBegan, function(Event, Processed)
         if Window.Destroyed then return end
         local Key = Event.KeyCode
-        if Processed or Input:GetFocusedTextBox() then return end
         if Event.UserInputType == Enum.UserInputType.Keyboard then
+            if Input:GetFocusedTextBox() then return end
+            if Processed and not Focus and not Capture and Key ~= ToggleKey then return end
             if Capture then
                 if Key ~= Enum.KeyCode.Escape and Key ~= ToggleKey and Key ~= Enum.KeyCode.Unknown then Capture.Value = Key.Name end
                 Capture = nil
@@ -3136,10 +3280,8 @@ function Menu.new(Title, ToggleKey)
                 return
             end
             if Key == ToggleKey then Window:SetVisible(not Window.Visible); return end
-            for _, Tab in ipairs(Window.Tabs) do
-                for _, Item in ipairs(Tab.Items) do
-                    if Item.Kind == "Keybind" and Item.Value == Key.Name and Enabled(Item) then Callback(Item); Render() end
-                end
+            for _, Item in ipairs(Window.Items) do
+                if Item.Kind == "Keybind" and Item.Value == Key.Name and Enabled(Item) then Callback(Item); Render() end
             end
         elseif Event.UserInputType == Enum.UserInputType.MouseButton1 and Window.Visible then
             local Point = Input:GetMouseLocation()
@@ -3153,12 +3295,16 @@ function Menu.new(Title, ToggleKey)
                 local Kind, Item = Target.Kind, Target.Item
                 if Kind == "Hide" then Window:SetVisible(false)
                 elseif Kind == "Drag" then Drag = Point - Position
-                elseif Kind == "Tab" then Item:Select()
                 elseif Kind == "Toggle" then Item.Value = not Item.Value; Callback(Item, Item.Value)
                 elseif Kind == "Button" then task.spawn(function() Callback(Item); Render() end)
                 elseif Kind == "Keybind" then Capture = Item
                 elseif Kind == "Input" then Focus = Item; Item.Edit = Item.Value or ""
-                elseif Kind == "Slider" then Slider = Item; SetSlider(Item, Point.X) end
+                elseif Kind == "Slider" then Slider = Item; SetSlider(Item, Point.X)
+                elseif Kind == "ScrollBar" then
+                    ScrollDrag = Item
+                    Item.Offset = Point.Y >= Item.ThumbTop and Point.Y <= Item.ThumbTop + Item.Thumb and (Point.Y - Item.ThumbTop) or Item.Thumb / 2
+                    Window.Scroll = math.max(0, math.min(Window.MaxScroll, (Point.Y - Item.Top - Item.Offset) / math.max(1, Item.Space - Item.Thumb) * Window.MaxScroll))
+                end
             end
             Render()
         end
@@ -3169,12 +3315,17 @@ function Menu.new(Title, ToggleKey)
         if Event.UserInputType == Enum.UserInputType.MouseMovement then
             local Point = Input:GetMouseLocation()
             if Drag then Position = Point - Drag; Render()
-            elseif Slider then SetSlider(Slider, Point.X) end
-        elseif Event.UserInputType == Enum.UserInputType.MouseWheel and not Processed then
+            elseif Slider then SetSlider(Slider, Point.X)
+            elseif ScrollDrag then
+                Window.Scroll = math.max(0, math.min(Window.MaxScroll, (Point.Y - ScrollDrag.Top - ScrollDrag.Offset) / math.max(1, ScrollDrag.Space - ScrollDrag.Thumb) * Window.MaxScroll))
+                Render()
+            end
+        elseif Event.UserInputType == Enum.UserInputType.MouseWheel then
             local Point = Input:GetMouseLocation()
             for _, Target in ipairs(Hits) do
                 if Target.Kind == "Scroll" and Inside(Point, Target) then
                     FinishInput(true)
+                    Capture, Slider = nil, nil
                     Target.Item.Scroll = Target.Item.Scroll - Event.Position.Z * 38
                     Render()
                     break
@@ -3183,10 +3334,10 @@ function Menu.new(Title, ToggleKey)
         end
     end)
     Connect(Input.InputEnded, function(Event)
-        if Event.UserInputType == Enum.UserInputType.MouseButton1 then Drag, Slider = nil, nil end
+        if Event.UserInputType == Enum.UserInputType.MouseButton1 then Drag, Slider, ScrollDrag = nil, nil, nil end
     end)
     Connect(Input.WindowFocusReleased, function()
-        Drag, Slider, Capture = nil, nil, nil
+        Drag, Slider, Capture, ScrollDrag = nil, nil, nil, nil
         FinishInput(true)
         Render()
     end)
@@ -4965,6 +5116,8 @@ local ToggleDefaults = {
     InstantInteract = true,
     ItemESP = true, 
     KillSound = true,
+    M1PingFix = true,
+    M1DownslamAssist = true,
     MsgAura = true, 
     Noclip = true, 
     QTE = true,
@@ -4974,6 +5127,7 @@ local ToggleDefaults = {
 }
 
 local VariableDefaults = {
+    M1JumpDelay = 0.35,
     SpeedMultiplier = 15,
     Reach = 15,
     LockedTarget = nil,
@@ -5061,7 +5215,7 @@ end)
 local Modules = {}
 local ModuleFailed = {}
 
-local ModuleList = {"ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "Targeting", "KillSound", "DiamondInTheSky"}
+local ModuleList = {"M1PingFix", "M1DownslamAssist", "ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "Targeting", "KillSound", "DiamondInTheSky"}
 
 task.spawn(function()
     while not Players.LocalPlayer do task.wait() end
@@ -5101,6 +5255,11 @@ task.spawn(function()
 end)
 
 local UiLayout = {
+    {Type = "Section",  Args = {Title = "M1 Assist"}},
+    {Type = "Toggle",   Module = "M1PingFix", Args = {Title = "M1 Ping Fix", Binding = CatstarState.Toggles.M1PingFix, Value = CatstarState.Toggles.M1PingFix.Value, Callback = function(V) CatstarState.Toggles.M1PingFix.Value = V end}},
+    {Type = "Slider",   Module = "M1PingFix", Args = {Title = "M1 Jump Delay (s)", Binding = CatstarState.Variables.M1JumpDelay, Step = 0.01, Value = {Min = 0, Max = 1, Default = CatstarState.Variables.M1JumpDelay.Value}, Callback = function(V) CatstarState.Variables.M1JumpDelay.Value = V end}},
+    {Type = "Toggle",   Module = "M1DownslamAssist", Args = {Title = "M1 Downslam Assist", Binding = CatstarState.Toggles.M1DownslamAssist, Value = CatstarState.Toggles.M1DownslamAssist.Value, Callback = function(V) CatstarState.Toggles.M1DownslamAssist.Value = V end}},
+
     {Type = "Section",  Args = {Title = "Combat Modules"}},
     {Type = "Toggle",   Module = "BlackFlash",        Args = {Title = "Auto BlackFlash", Binding = CatstarState.Toggles.BlackFlash, Value = CatstarState.Toggles.BlackFlash.Value, Callback = function(V) CatstarState.Toggles.BlackFlash.Value = V end}},
     {Type = "Toggle",   Module = "Ratio",             Args = {Title = "Auto Nanami Ratio", Binding = CatstarState.Toggles.Ratio, Value = CatstarState.Toggles.Ratio.Value, Callback = function(V) CatstarState.Toggles.Ratio.Value = V end}},
@@ -5123,10 +5282,6 @@ local UiLayout = {
     {Type = "Toggle",   Module = "DiamondInTheSky",   Args = {Title = "Faster Diamond In The Sky", Binding = CatstarState.Toggles.DiamondInTheSky, Value = CatstarState.Toggles.DiamondInTheSky.Value, Callback = function(V) CatstarState.Toggles.DiamondInTheSky.Value = V end}},
     {Type = "Slider",   Module = "DiamondInTheSky",   Args = {Title = "Diamond In The Sky Speed", Binding = CatstarState.Variables.SpeedMultiplier, Step = 1, Value = {Min = 1, Max = 50, Default = CatstarState.Variables.SpeedMultiplier.Value}, Callback = function(V) CatstarState.Variables.SpeedMultiplier.Value = V end}},
     
-    {Type = "Section",  Args = {Title = "Utility Mechanics"}},
-    {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
-    {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
-
     {Type = "Section",  Args = {Title = "Visual Mechanics"}},
     {Type = "Toggle",   Module = "ESP",               Args = {Title = "Player ESP", Binding = CatstarState.Toggles.ESP, Value = CatstarState.Toggles.ESP.Value, Callback = function(V) CatstarState.Toggles.ESP.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Tracers", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.Tracers, Value = CatstarState.Toggles.Tracers.Value, Callback = function(V) CatstarState.Toggles.Tracers.Value = V end}},
@@ -5141,6 +5296,10 @@ local UiLayout = {
     {Type = "Toggle",   Module = "ItemESP",           Args = {Title = "Item ESP", Binding = CatstarState.Toggles.ItemESP, Value = CatstarState.Toggles.ItemESP.Value, Callback = function(V) CatstarState.Toggles.ItemESP.Value = V end}},
     {Type = "Toggle",   Module = "Aura",              Args = {Title = "Message Aura", Binding = CatstarState.Toggles.MsgAura, Value = CatstarState.Toggles.MsgAura.Value, Callback = function(V) CatstarState.Toggles.MsgAura.Value = V end}},
     
+    {Type = "Section",  Args = {Title = "Utility Mechanics"}},
+    {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
+    {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
+
     {Type = "Section",  Args = {Title = "Targeting & Spectating"}},
     {Type = "Input",    Module = "Targeting",        InitName = "None", Args = {Title = "Search Player", Placeholder = "Enter name...", Value = CatstarState.Variables.TargetIdentifier.Value, Callback = function(T) CatstarState.Variables.TargetIdentifier.Value = T end}},
     {Type = "Button",   Module = "Targeting",        InitName = "None", Args = {Title = "Spectate", Callback = function() if Modules.Targeting then Modules.Targeting.Clicked(CatstarState) end end}},
@@ -5150,23 +5309,11 @@ local UiLayout = {
     {Type = "Toggle",   Module = "KillSound",         Args = {Title = "Free Kill Sound", Binding = CatstarState.Toggles.KillSound, Value = CatstarState.Toggles.KillSound.Value, Callback = function(V) CatstarState.Toggles.KillSound.Value = V end}},
 }
 
-local Tabs = {}
-for _, Name in ipairs({"Combat", "Movement", "Visuals", "Utility"}) do
-    Tabs[Name] = Window:Tab({Title = Name})
-end
-local Sections = {
-    ["Combat Modules"] = "Combat", ["Aimbot Settings"] = "Combat",
-    ["Movement & Protection"] = "Movement", ["Emote Exploits"] = "Movement",
-    ["Visual Mechanics"] = "Visuals", ["Utility Mechanics"] = "Utility",
-    ["Targeting & Spectating"] = "Utility", ["Unlocks"] = "Utility",
-}
 local InitializedModules = {}
 local Pending = 0
 local Failures = {}
-local MainTab
 for _, Element in ipairs(UiLayout) do
-    if Element.Type == "Section" then MainTab = Tabs[Sections[Element.Args.Title]] end
-    local Component = MainTab[Element.Type](MainTab, Element.Args)
+    local Component = Window:Add(Element.Type, Element.Args)
     local TargetModule = Element.Module
     if TargetModule then
         Pending = Pending + 1
@@ -5196,7 +5343,7 @@ for _, Element in ipairs(UiLayout) do
         end)
     end
 end
-Tabs.Combat:Select()
+Window:Refresh()
 Window:SetStatus("Loading modules...")
 task.spawn(function()
     while Pending > 0 do task.wait() end
