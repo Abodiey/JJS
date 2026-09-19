@@ -4917,21 +4917,17 @@ task.delay(60, function()
             if isEnabled and trackedRemotes[self] then
                 local Args = table.pack(...)
 
-                if Args.n == 2 and typeof(Args[1]) == "Instance" and typeof(Args[2]) == "CFrame" then
-                    local info = Args[1]:FindFirstChild("Info")
-                    if info and info:FindFirstChild("Block") then
-                        setnamecallmethod(method)
-                        return oldNamecall(self, nil, Args[2])
+                if Args.n == 2 and typeof(Args[2]) == "CFrame" then
+                    if type(Args[1]) == "table" then
+                        local target = Args[1][1]
+                        local info = typeof(target) == "Instance" and target:FindFirstChild("Info")
+                        if info and info:FindFirstChild("Block") then Args[1] = nil end
+                    elseif Args[1] == nil then
+                        local target = getClosestCharacter()
+                        if target then Args[1] = {target} end
                     end
-                end
-
-                if Args.n == 2 and Args[1] == nil and typeof(Args[2]) == "CFrame" then
-                    local target = getClosestCharacter()
-
-                    if target then
-                        setnamecallmethod(method)
-                        return oldNamecall(self, {target}, Args[2])
-                    end
+                    setnamecallmethod(method)
+                    return oldNamecall(self, table.unpack(Args, 1, Args.n))
                 end
             end
         end
