@@ -2312,6 +2312,8 @@ function ESP.Init(State)
     local ItadoriEffects = ItadoriRE:WaitForChild("Effects")
     local feintConn = ItadoriEffects.OnClientEvent:Connect(function(action, charInstance, ...)
         if action == "Feint" and typeof(charInstance) == "Instance" then
+            local info = charInstance:FindFirstChild("Info")
+            if info and info:GetAttribute("CD") then return end
             for p, c in pairs(Cache) do
                 if p.Character == charInstance then
                     local spec = SPECIAL_COOLDOWNS["Itadori"]
@@ -2331,6 +2333,8 @@ function ESP.Init(State)
     local HakariEffects = HakariRE:WaitForChild("Effects")
     local counterConn = HakariEffects.OnClientEvent:Connect(function(action, charInstance, ...)
         if action == "Counter" and typeof(charInstance) == "Instance" then
+            local info = charInstance:FindFirstChild("Info")
+            if info and info:GetAttribute("CD") then return end
             for p, c in pairs(Cache) do
                 if p.Character == charInstance then
                     local spec = SPECIAL_COOLDOWNS["Hakari"]
@@ -2496,7 +2500,9 @@ function ESP.Init(State)
                     local ultValue = type(rawUlt) == "number" and rawUlt or 0
                     UltimateBar.Render(c, boxX, uY, boxWidth, uHeight, ultValue, movesetName, fullyCustom, globalRainbowColor, globalRainbowHex, shouldUpdateHeavy, isThrottledFrame)
 
-                    local hasActiveMoveset, slotY = Moveset.Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY)
+                    local noCooldown = info and info:GetAttribute("CD")
+                    if noCooldown then c.SpecialCooldownEnd = 0 end
+                    local hasActiveMoveset, slotY = Moveset.Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY, noCooldown)
                     PlayerInfo.Render(c, p, char, info, dist, movesetName, fullyCustom, isHaruta, miraclesObj, hideNameAndHealth, globalRainbowHex, shouldUpdateHeavy, scaleFactor, root2D, hasActiveMoveset, slotY, uY)
                     Tracers.Render(c, sX, sY, root2D, feet2D, dist, shouldUpdateHeavy)
                 else
@@ -3218,13 +3224,13 @@ function M1DownslamAssist.Init(State)
                 local previous = lastValue
                 lastValue = value
                 cancel()
-                if previous ~= 3 or value ~= 4 or not toggleObject.Value then return end
+                if previous ~= 3 or value ~= 4 or not toggleObject.Value or LocalPlayer:GetAttribute("Moveset") == "Naoya" then return end
                 local jumped = false
                 local started = os.clock()
                 pending = RunService.Heartbeat:Connect(function()
                     if LocalPlayer.Character ~= character or not character.Parent or humanoid.Health <= 0
                         or character:GetAttribute("Dead") or info.Parent ~= character or root.Parent ~= character
-                        or humanoid.Parent ~= character or not toggleObject.Value
+                        or humanoid.Parent ~= character or not toggleObject.Value or LocalPlayer:GetAttribute("Moveset") == "Naoya"
                         or info:FindFirstChild("Stun") or info:FindFirstChild("Ragdoll") then cancel(); return end
                     local state = humanoid:GetState()
                     local airborne = state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall
@@ -3770,7 +3776,7 @@ function Moveset.Init(State, Helpers)
         end
     end
 
-    local function Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY)
+    local function Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY, noCooldown)
         if not toggleObject.Value then Hide(c); return end
         -- 5. Moveset Slots
         local slotHeight = m_floor(m_clamp(22 * scaleFactor, 14, 32))
@@ -3794,7 +3800,7 @@ function Moveset.Init(State, Helpers)
             local specData = SPECIAL_COOLDOWNS[movesetName]
             if specData then
                 specialItem.Data.Name = specData.Name
-                local remaining = m_max(0, c.SpecialCooldownEnd - o_clock())
+                local remaining = not noCooldown and m_max(0, c.SpecialCooldownEnd - o_clock()) or 0
                 local cdRatio = m_clamp(remaining / specData.Duration, 0, 1)
                 specialItem.Data.CooldownRatio = cdRatio
             else
@@ -3833,14 +3839,18 @@ function Moveset.Init(State, Helpers)
                             end
                             item.MoveRef = move
     
-                            local lastUsedStamp = move:GetAttribute("LastUse")
-                            local totalCdDuration = tonumber(move.Value)
-                            if type(lastUsedStamp) == "number" and type(totalCdDuration) == "number" and totalCdDuration > 0 then
-                                local serverNow = workspace:GetServerTimeNow()
-                                local remainingCd = (lastUsedStamp + totalCdDuration) - serverNow
-                                item.Data.CooldownRatio = m_clamp(remainingCd / totalCdDuration, 0, 1)
-                            else
+                            if noCooldown then
                                 item.Data.CooldownRatio = 0
+                            else
+                                local lastUsedStamp = move:GetAttribute("LastUse")
+                                local totalCdDuration = tonumber(move.Value)
+                                if type(lastUsedStamp) == "number" and type(totalCdDuration) == "number" and totalCdDuration > 0 then
+                                    local serverNow = workspace:GetServerTimeNow()
+                                    local remainingCd = (lastUsedStamp + totalCdDuration) - serverNow
+                                    item.Data.CooldownRatio = m_clamp(remainingCd / totalCdDuration, 0, 1)
+                                else
+                                    item.Data.CooldownRatio = 0
+                                end
                             end
                         end
                     end
@@ -4868,10 +4878,14 @@ end
 -- Module Variables
 local maxDistance = 15
 local isEnabled = false
+local lockedTarget
 
 -- Helper Functions
 local function getClosestCharacter()
     if not character or not localRoot then return nil end
+
+    local target = lockedTarget and lockedTarget.Value
+    if target and target.Parent and not target:GetAttribute("Dead") and target:FindFirstChild("HumanoidRootPart") then return target end
 
     local closest, shortest = nil, maxDistance
 
@@ -4921,6 +4935,7 @@ end)
 
 -- Module Core Initialization
 function Reach.Init(State)
+    lockedTarget = State.Variables.LockedTarget
     local toggleObject = State.Toggles.Reach
     local reachVariable = State.Variables.Reach
 
