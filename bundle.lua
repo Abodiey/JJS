@@ -4876,7 +4876,9 @@ local function getClosestCharacter()
     local closest, shortest = nil, maxDistance
 
     for _, char in ipairs(CharactersFolder:GetChildren()) do
-        if char ~= character and not Blacklist[char.Name] then
+        local owner = char.Name == "KuroClone" and char:FindFirstChild("Owner")
+        local ignoreClone = char.Name == "KuroClone" and (not owner or owner.Value == LocalPlayer)
+        if char ~= character and not Blacklist[char.Name] and not ignoreClone then
             local root = char:FindFirstChild("HumanoidRootPart")
             if root and char:FindFirstChild("Info") and not char.Info:FindFirstChild("Block") then
                 local d = (root.Position - localRoot.Position).Magnitude
