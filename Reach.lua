@@ -77,6 +77,14 @@ task.delay(60, function()
             if isEnabled and trackedRemotes[self] then
                 local Args = table.pack(...)
 
+                if Args.n == 2 and typeof(Args[1]) == "Instance" and typeof(Args[2]) == "CFrame" then
+                    local info = Args[1]:FindFirstChild("Info")
+                    if info and info:FindFirstChild("Block") then
+                        setnamecallmethod(method)
+                        return oldNamecall(self, nil, Args[2])
+                    end
+                end
+
                 if Args.n == 2 and Args[1] == nil and typeof(Args[2]) == "CFrame" then
                     local target = getClosestCharacter()
 
