@@ -4843,6 +4843,7 @@ local localRoot = character and character:WaitForChild("HumanoidRootPart", 9999)
 local oldNamecall = nil
 
 local Blacklist = {
+    ["EarthenInsect"] = true,
     ["HarutaSwordNPC"] = true, 
     ["FrameNPC"] = true, 
     ["MechamaruBot"] = true
