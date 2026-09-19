@@ -38,10 +38,14 @@ end
 -- Module Variables
 local maxDistance = 15
 local isEnabled = false
+local lockedTarget
 
 -- Helper Functions
 local function getClosestCharacter()
     if not character or not localRoot then return nil end
+
+    local target = lockedTarget and lockedTarget.Value
+    if target and target.Parent and not target:GetAttribute("Dead") and target:FindFirstChild("HumanoidRootPart") then return target end
 
     local closest, shortest = nil, maxDistance
 
@@ -91,6 +95,7 @@ end)
 
 -- Module Core Initialization
 function Reach.Init(State)
+    lockedTarget = State.Variables.LockedTarget
     local toggleObject = State.Toggles.Reach
     local reachVariable = State.Variables.Reach
 

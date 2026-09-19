@@ -631,6 +631,8 @@ function ESP.Init(State)
     local ItadoriEffects = ItadoriRE:WaitForChild("Effects")
     local feintConn = ItadoriEffects.OnClientEvent:Connect(function(action, charInstance, ...)
         if action == "Feint" and typeof(charInstance) == "Instance" then
+            local info = charInstance:FindFirstChild("Info")
+            if info and info:GetAttribute("CD") then return end
             for p, c in pairs(Cache) do
                 if p.Character == charInstance then
                     local spec = SPECIAL_COOLDOWNS["Itadori"]
@@ -650,6 +652,8 @@ function ESP.Init(State)
     local HakariEffects = HakariRE:WaitForChild("Effects")
     local counterConn = HakariEffects.OnClientEvent:Connect(function(action, charInstance, ...)
         if action == "Counter" and typeof(charInstance) == "Instance" then
+            local info = charInstance:FindFirstChild("Info")
+            if info and info:GetAttribute("CD") then return end
             for p, c in pairs(Cache) do
                 if p.Character == charInstance then
                     local spec = SPECIAL_COOLDOWNS["Hakari"]
@@ -815,7 +819,9 @@ function ESP.Init(State)
                     local ultValue = type(rawUlt) == "number" and rawUlt or 0
                     UltimateBar.Render(c, boxX, uY, boxWidth, uHeight, ultValue, movesetName, fullyCustom, globalRainbowColor, globalRainbowHex, shouldUpdateHeavy, isThrottledFrame)
 
-                    local hasActiveMoveset, slotY = Moveset.Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY)
+                    local noCooldown = info and info:GetAttribute("CD")
+                    if noCooldown then c.SpecialCooldownEnd = 0 end
+                    local hasActiveMoveset, slotY = Moveset.Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY, noCooldown)
                     PlayerInfo.Render(c, p, char, info, dist, movesetName, fullyCustom, isHaruta, miraclesObj, hideNameAndHealth, globalRainbowHex, shouldUpdateHeavy, scaleFactor, root2D, hasActiveMoveset, slotY, uY)
                     Tracers.Render(c, sX, sY, root2D, feet2D, dist, shouldUpdateHeavy)
                 else

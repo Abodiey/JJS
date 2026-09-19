@@ -25,7 +25,7 @@ function Moveset.Init(State, Helpers)
         end
     end
 
-    local function Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY)
+    local function Render(c, movesetName, movesetFolder, isReggie, nextReceiptObj, scaleFactor, root2D, uY, noCooldown)
         if not toggleObject.Value then Hide(c); return end
         -- 5. Moveset Slots
         local slotHeight = m_floor(m_clamp(22 * scaleFactor, 14, 32))
@@ -49,7 +49,7 @@ function Moveset.Init(State, Helpers)
             local specData = SPECIAL_COOLDOWNS[movesetName]
             if specData then
                 specialItem.Data.Name = specData.Name
-                local remaining = m_max(0, c.SpecialCooldownEnd - o_clock())
+                local remaining = not noCooldown and m_max(0, c.SpecialCooldownEnd - o_clock()) or 0
                 local cdRatio = m_clamp(remaining / specData.Duration, 0, 1)
                 specialItem.Data.CooldownRatio = cdRatio
             else
@@ -88,14 +88,18 @@ function Moveset.Init(State, Helpers)
                             end
                             item.MoveRef = move
     
-                            local lastUsedStamp = move:GetAttribute("LastUse")
-                            local totalCdDuration = tonumber(move.Value)
-                            if type(lastUsedStamp) == "number" and type(totalCdDuration) == "number" and totalCdDuration > 0 then
-                                local serverNow = workspace:GetServerTimeNow()
-                                local remainingCd = (lastUsedStamp + totalCdDuration) - serverNow
-                                item.Data.CooldownRatio = m_clamp(remainingCd / totalCdDuration, 0, 1)
-                            else
+                            if noCooldown then
                                 item.Data.CooldownRatio = 0
+                            else
+                                local lastUsedStamp = move:GetAttribute("LastUse")
+                                local totalCdDuration = tonumber(move.Value)
+                                if type(lastUsedStamp) == "number" and type(totalCdDuration) == "number" and totalCdDuration > 0 then
+                                    local serverNow = workspace:GetServerTimeNow()
+                                    local remainingCd = (lastUsedStamp + totalCdDuration) - serverNow
+                                    item.Data.CooldownRatio = m_clamp(remainingCd / totalCdDuration, 0, 1)
+                                else
+                                    item.Data.CooldownRatio = 0
+                                end
                             end
                         end
                     end

@@ -58,13 +58,13 @@ function M1DownslamAssist.Init(State)
                 local previous = lastValue
                 lastValue = value
                 cancel()
-                if previous ~= 3 or value ~= 4 or not toggleObject.Value then return end
+                if previous ~= 3 or value ~= 4 or not toggleObject.Value or LocalPlayer:GetAttribute("Moveset") == "Naoya" then return end
                 local jumped = false
                 local started = os.clock()
                 pending = RunService.Heartbeat:Connect(function()
                     if LocalPlayer.Character ~= character or not character.Parent or humanoid.Health <= 0
                         or character:GetAttribute("Dead") or info.Parent ~= character or root.Parent ~= character
-                        or humanoid.Parent ~= character or not toggleObject.Value
+                        or humanoid.Parent ~= character or not toggleObject.Value or LocalPlayer:GetAttribute("Moveset") == "Naoya"
                         or info:FindFirstChild("Stun") or info:FindFirstChild("Ragdoll") then cancel(); return end
                     local state = humanoid:GetState()
                     local airborne = state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall
