@@ -44,7 +44,7 @@ local lockedTarget
 local function getClosestCharacter()
     if not character or not localRoot then return nil end
 
-    local target = lockedTarget and lockedTarget.Value
+    local target = lockedTarget
     if target and target.Parent and not target:GetAttribute("Dead") and target:FindFirstChild("HumanoidRootPart") then return target end
 
     local closest, shortest = nil, maxDistance
@@ -95,7 +95,7 @@ end)
 
 -- Module Core Initialization
 function Reach.Init(State)
-    lockedTarget = State.Variables.LockedTarget
+    local targetVariable = State.Variables.LockedTarget
     local toggleObject = State.Toggles.Reach
     local reachVariable = State.Variables.Reach
 
@@ -106,6 +106,14 @@ function Reach.Init(State)
     local function handleReachChange()
         maxDistance = reachVariable.Value
     end
+
+    local function handleTargetChange()
+        lockedTarget = targetVariable.Value
+    end
+
+    local targetConn = targetVariable:GetPropertyChangedSignal("Value"):Connect(handleTargetChange)
+    table.insert(State.Connections, targetConn)
+    handleTargetChange()
 
     -- Toggle setup
     local toggleConn = toggleObject:GetPropertyChangedSignal("Value"):Connect(handleToggleChange)
