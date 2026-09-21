@@ -58,13 +58,15 @@ function M1DownslamAssist.Init(State)
                 local previous = lastValue
                 lastValue = value
                 cancel()
-                if previous ~= 3 or value ~= 4 or not toggleObject.Value or LocalPlayer:GetAttribute("Moveset") == "Naoya" then return end
+                local moveset = character:GetAttribute("Moveset")
+                local lastHit = moveset == "Ryu" and 3 or 4
+                if previous ~= lastHit - 1 or value ~= lastHit or not toggleObject.Value or moveset == "Naoya" then return end
                 local jumped = false
                 local started = os.clock()
                 pending = RunService.Heartbeat:Connect(function()
                     if LocalPlayer.Character ~= character or not character.Parent or humanoid.Health <= 0
                         or character:GetAttribute("Dead") or info.Parent ~= character or root.Parent ~= character
-                        or humanoid.Parent ~= character or not toggleObject.Value or LocalPlayer:GetAttribute("Moveset") == "Naoya"
+                        or humanoid.Parent ~= character or not toggleObject.Value or character:GetAttribute("Moveset") == "Naoya"
                         or info:FindFirstChild("Stun") or info:FindFirstChild("Ragdoll") then cancel(); return end
                     local state = humanoid:GetState()
                     local airborne = state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall
@@ -80,7 +82,7 @@ function M1DownslamAssist.Init(State)
                     end
                     if info:FindFirstChild("InSkill") or (airborne and root.AssemblyLinearVelocity.Y >= 0) then return end
                     cancel()
-                    local moveset = LocalPlayer:GetAttribute("Moveset")
+                    local moveset = character:GetAttribute("Moveset")
                     local service = type(moveset) == "string" and Services:FindFirstChild(moveset .. "Service")
                     local re = service and service:FindFirstChild("RE")
                     local event = re and re:FindFirstChild("Activated")
