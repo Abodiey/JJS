@@ -30,11 +30,6 @@ local R6_PART_NAMES = {
     "Right Leg"
 }
 
-local Blacklist = {
-    ["HarutaSwordNPC"] = true, 
-    ["FrameNPC"] = true, 
-    ["MechamaruBot"] = true
-}
 
 local BOX_CORNERS = {
     Vector3.new(-1,  1, -1),
@@ -149,20 +144,15 @@ function Aimbot.Toggle(State)
     local nearest, dist = nil, math.huge
     local inset = GuiService:GetGuiInset()
     local mousePos = UserInputService:GetMouseLocation() - inset
-    local myTeam = Player.Team
     local characterFolder = workspace:FindFirstChild("Characters") or workspace
     Camera = workspace.CurrentCamera
 
     for _, obj in ipairs(characterFolder:GetChildren()) do
-        if obj == Player.Character or obj:GetAttribute("Dead") or Blacklist[obj.Name] then continue end
+        if not State.TargetFilter.IsValid(obj, State.Toggles.TeamCheck.Value) then continue end
         
         local hrp = obj:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
         
-        local targetPlayer = Players:GetPlayerFromCharacter(obj)
-        if State.Toggles.TeamCheck.Value and myTeam and targetPlayer and targetPlayer.Team == myTeam then 
-            continue 
-        end
 
         local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
         if not onScreen then continue end
@@ -207,7 +197,7 @@ function Aimbot.Init(State)
         end
         
         local target = State.Variables.LockedTarget.Value
-        if not target or not target.Parent or target:GetAttribute("Dead") then 
+        if not State.TargetFilter.IsValid(target, State.Toggles.TeamCheck.Value) then 
             State.Variables.LockedTarget.Value = nil
             State.Toggles.Aim.Value = false
             HideAllBoxes() 
@@ -257,6 +247,7 @@ function Aimbot.Init(State)
 end
 
 return Aimbot
+
 ]=],
     ["AntiBlackhole"] = [=[
 local AntiBlackHole = {}
@@ -3224,9 +3215,9 @@ local RunService = cloneref(game:GetService("RunService"))
 local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 local Players = cloneref(game:GetService("Players"))
 local LocalPlayer = Players.LocalPlayer
-local Blacklist = {HarutaSwordNPC = true, FrameNPC = true, MechamaruBot = true}
 
 function M1DownslamAssist.Init(State)
+    local isValidTarget = State.TargetFilter.IsValid
     local Services = ReplicatedStorage:WaitForChild("Knit"):WaitForChild("Knit"):WaitForChild("Services")
     local toggleObject = State.Toggles.M1DownslamAssist
     local connections = {}
@@ -3238,15 +3229,13 @@ function M1DownslamAssist.Init(State)
 
     local function getTarget(character, root)
         local target = State.Variables.LockedTarget.Value
-        if target and target.Parent and not target:GetAttribute("Dead") and target:FindFirstChild("HumanoidRootPart") then return target end
+        if isValidTarget(target, State.Toggles.TeamCheck.Value) then return target end
         local folder = workspace:FindFirstChild("Characters")
         if not folder then return nil end
         local closest, distance = nil, State.Variables.Reach.Value
         for _, other in ipairs(folder:GetChildren()) do
             local otherRoot = other:FindFirstChild("HumanoidRootPart")
-            local info = other:FindFirstChild("Info")
-            if other ~= character and not Blacklist[other.Name] and not other:GetAttribute("Dead")
-                and otherRoot and info and not info:FindFirstChild("Block") then
+            if isValidTarget(other, State.Toggles.TeamCheck.Value) then
                 local d = (otherRoot.Position - root.Position).Magnitude
                 if d <= distance then closest, distance = other, d end
             end
@@ -3321,6 +3310,7 @@ function M1DownslamAssist.Init(State)
 end
 
 return M1DownslamAssist
+
 ]=],
     ["M1PingFix"] = [=[
 local M1PingFix = {}
@@ -4912,12 +4902,6 @@ local character = LocalPlayer.Character
 local localRoot = character and character:WaitForChild("HumanoidRootPart", 9999)
 local oldNamecall = nil
 
-local Blacklist = {
-    ["EarthenInsect"] = true,
-    ["HarutaSwordNPC"] = true, 
-    ["FrameNPC"] = true, 
-    ["MechamaruBot"] = true
-}
 -- Character Setup
 local function setupCharacter(newChar)
     character = newChar
@@ -4939,27 +4923,25 @@ end
 local maxDistance = 15
 local isEnabled = false
 local lockedTarget
+local teamCheck = false
+local isValidTarget
 
 -- Helper Functions
 local function getClosestCharacter()
     if not character or not localRoot then return nil end
 
     local target = lockedTarget
-    if target and target.Parent and not target:GetAttribute("Dead") and target:FindFirstChild("HumanoidRootPart") then return target end
+    if isValidTarget(target, teamCheck) then return target end
 
     local closest, shortest = nil, maxDistance
 
     for _, char in ipairs(CharactersFolder:GetChildren()) do
-        local owner = char.Name == "KuroClone" and char:FindFirstChild("Owner")
-        local ignoreClone = char.Name == "KuroClone" and (not owner or owner.Value == LocalPlayer)
-        if char ~= character and not Blacklist[char.Name] and not ignoreClone then
+        if isValidTarget(char, teamCheck) then
             local root = char:FindFirstChild("HumanoidRootPart")
-            if root and char:FindFirstChild("Info") and not char.Info:FindFirstChild("Block") then
-                local d = (root.Position - localRoot.Position).Magnitude
-                if d <= shortest then
-                    shortest = d
-                    closest = char
-                end
+            local d = (root.Position - localRoot.Position).Magnitude
+            if d <= shortest then
+                shortest = d
+                closest = char
             end
         end
     end
@@ -4980,8 +4962,7 @@ task.delay(60, function()
                 if Args.n == 2 and typeof(Args[2]) == "CFrame" then
                     if type(Args[1]) == "table" then
                         local target = Args[1][1]
-                        local info = typeof(target) == "Instance" and target:FindFirstChild("Info")
-                        if info and info:FindFirstChild("Block") then Args[1] = nil end
+                        if not isValidTarget(target, teamCheck) then Args[1] = nil end
                     elseif Args[1] == nil then
                         local target = getClosestCharacter()
                         if target then Args[1] = {target} end
@@ -4999,6 +4980,11 @@ end)
 
 -- Module Core Initialization
 function Reach.Init(State)
+    isValidTarget = State.TargetFilter.IsValid
+    local teamCheckObject = State.Toggles.TeamCheck
+    local function handleTeamCheckChange() teamCheck = teamCheckObject.Value end
+    table.insert(State.Connections, teamCheckObject:GetPropertyChangedSignal("Value"):Connect(handleTeamCheckChange))
+    handleTeamCheckChange()
     local targetVariable = State.Variables.LockedTarget
     local toggleObject = State.Toggles.Reach
     local reachVariable = State.Variables.Reach
@@ -5031,6 +5017,7 @@ function Reach.Init(State)
 end
 
 return Reach
+
 ]=],
     ["Rejoin"] = [=[
 local Rejoin = {}
@@ -5207,6 +5194,30 @@ function SpecialMeter.Init(State, Helpers)
 end
 
 return SpecialMeter
+]=],
+    ["TargetFilter"] = [=[
+local TargetFilter = {}
+local Players = cloneref(game:GetService("Players"))
+local LocalPlayer = Players.LocalPlayer
+local Blacklist = {EarthenInsect = true, HarutaSwordNPC = true, FrameNPC = true, MechamaruBot = true}
+
+function TargetFilter.IsValid(character, teamCheck)
+    if typeof(character) ~= "Instance" or not character.Parent or character == LocalPlayer.Character
+        or Blacklist[character.Name] or character:GetAttribute("Dead") then return false end
+    if character.Name == "KuroClone" then
+        local owner = character:FindFirstChild("Owner")
+        if not owner or owner.Value == LocalPlayer then return false end
+    end
+    local info = character:FindFirstChild("Info")
+    if not character:FindFirstChild("HumanoidRootPart") or not info or info:FindFirstChild("Block") then return false end
+    if teamCheck and LocalPlayer.Team then
+        local player = Players:GetPlayerFromCharacter(character)
+        if player and player.Team == LocalPlayer.Team then return false end
+    end
+    return true
+end
+
+return TargetFilter
 ]=],
     ["Tracers"] = [=[
 local Tracers = {}
@@ -5629,6 +5640,13 @@ task.spawn(function()
     Load("fixes")
 end)
 
+local TargetFilter = Load("TargetFilter")
+if type(TargetFilter) ~= "table" or type(TargetFilter.IsValid) ~= "function" then
+    Window:SetStatus("Failed: TargetFilter")
+    return
+end
+CatstarState.TargetFilter = TargetFilter
+
 local Modules = {}
 local ModuleFailed = {}
 
@@ -5783,6 +5801,7 @@ task.spawn(function()
     table.sort(Names)
     Window:SetStatus(#Names == 0 and "Ready" or ("Failed: " .. table.concat(Names, ", ")))
 end)
+
 ]=],
 }
 
