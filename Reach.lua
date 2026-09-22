@@ -12,12 +12,6 @@ local character = LocalPlayer.Character
 local localRoot = character and character:WaitForChild("HumanoidRootPart", 9999)
 local oldNamecall = nil
 
-local Blacklist = {
-    ["EarthenInsect"] = true,
-    ["HarutaSwordNPC"] = true, 
-    ["FrameNPC"] = true, 
-    ["MechamaruBot"] = true
-}
 -- Character Setup
 local function setupCharacter(newChar)
     character = newChar
@@ -39,27 +33,25 @@ end
 local maxDistance = 15
 local isEnabled = false
 local lockedTarget
+local teamCheck = false
+local isValidTarget
 
 -- Helper Functions
 local function getClosestCharacter()
     if not character or not localRoot then return nil end
 
     local target = lockedTarget
-    if target and target.Parent and not target:GetAttribute("Dead") and target:FindFirstChild("HumanoidRootPart") then return target end
+    if isValidTarget(target, teamCheck) then return target end
 
     local closest, shortest = nil, maxDistance
 
     for _, char in ipairs(CharactersFolder:GetChildren()) do
-        local owner = char.Name == "KuroClone" and char:FindFirstChild("Owner")
-        local ignoreClone = char.Name == "KuroClone" and (not owner or owner.Value == LocalPlayer)
-        if char ~= character and not Blacklist[char.Name] and not ignoreClone then
+        if isValidTarget(char, teamCheck) then
             local root = char:FindFirstChild("HumanoidRootPart")
-            if root and char:FindFirstChild("Info") and not char.Info:FindFirstChild("Block") then
-                local d = (root.Position - localRoot.Position).Magnitude
-                if d <= shortest then
-                    shortest = d
-                    closest = char
-                end
+            local d = (root.Position - localRoot.Position).Magnitude
+            if d <= shortest then
+                shortest = d
+                closest = char
             end
         end
     end
@@ -80,8 +72,7 @@ task.delay(60, function()
                 if Args.n == 2 and typeof(Args[2]) == "CFrame" then
                     if type(Args[1]) == "table" then
                         local target = Args[1][1]
-                        local info = typeof(target) == "Instance" and target:FindFirstChild("Info")
-                        if info and info:FindFirstChild("Block") then Args[1] = nil end
+                        if not isValidTarget(target, teamCheck) then Args[1] = nil end
                     elseif Args[1] == nil then
                         local target = getClosestCharacter()
                         if target then Args[1] = {target} end
@@ -99,6 +90,11 @@ end)
 
 -- Module Core Initialization
 function Reach.Init(State)
+    isValidTarget = State.TargetFilter.IsValid
+    local teamCheckObject = State.Toggles.TeamCheck
+    local function handleTeamCheckChange() teamCheck = teamCheckObject.Value end
+    table.insert(State.Connections, teamCheckObject:GetPropertyChangedSignal("Value"):Connect(handleTeamCheckChange))
+    handleTeamCheckChange()
     local targetVariable = State.Variables.LockedTarget
     local toggleObject = State.Toggles.Reach
     local reachVariable = State.Variables.Reach
@@ -131,3 +127,4 @@ function Reach.Init(State)
 end
 
 return Reach
+

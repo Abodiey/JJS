@@ -27,11 +27,6 @@ local R6_PART_NAMES = {
     "Right Leg"
 }
 
-local Blacklist = {
-    ["HarutaSwordNPC"] = true, 
-    ["FrameNPC"] = true, 
-    ["MechamaruBot"] = true
-}
 
 local BOX_CORNERS = {
     Vector3.new(-1,  1, -1),
@@ -146,20 +141,15 @@ function Aimbot.Toggle(State)
     local nearest, dist = nil, math.huge
     local inset = GuiService:GetGuiInset()
     local mousePos = UserInputService:GetMouseLocation() - inset
-    local myTeam = Player.Team
     local characterFolder = workspace:FindFirstChild("Characters") or workspace
     Camera = workspace.CurrentCamera
 
     for _, obj in ipairs(characterFolder:GetChildren()) do
-        if obj == Player.Character or obj:GetAttribute("Dead") or Blacklist[obj.Name] then continue end
+        if not State.TargetFilter.IsValid(obj, State.Toggles.TeamCheck.Value) then continue end
         
         local hrp = obj:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
         
-        local targetPlayer = Players:GetPlayerFromCharacter(obj)
-        if State.Toggles.TeamCheck.Value and myTeam and targetPlayer and targetPlayer.Team == myTeam then 
-            continue 
-        end
 
         local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
         if not onScreen then continue end
@@ -204,7 +194,7 @@ function Aimbot.Init(State)
         end
         
         local target = State.Variables.LockedTarget.Value
-        if not target or not target.Parent or target:GetAttribute("Dead") then 
+        if not State.TargetFilter.IsValid(target, State.Toggles.TeamCheck.Value) then 
             State.Variables.LockedTarget.Value = nil
             State.Toggles.Aim.Value = false
             HideAllBoxes() 
@@ -254,3 +244,4 @@ function Aimbot.Init(State)
 end
 
 return Aimbot
+

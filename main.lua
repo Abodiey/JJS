@@ -169,6 +169,13 @@ task.spawn(function()
     Load("fixes")
 end)
 
+local TargetFilter = Load("TargetFilter")
+if type(TargetFilter) ~= "table" or type(TargetFilter.IsValid) ~= "function" then
+    Window:SetStatus("Failed: TargetFilter")
+    return
+end
+CatstarState.TargetFilter = TargetFilter
+
 local Modules = {}
 local ModuleFailed = {}
 
@@ -323,3 +330,4 @@ task.spawn(function()
     table.sort(Names)
     Window:SetStatus(#Names == 0 and "Ready" or ("Failed: " .. table.concat(Names, ", ")))
 end)
+

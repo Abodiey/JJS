@@ -4,9 +4,9 @@ local RunService = cloneref(game:GetService("RunService"))
 local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 local Players = cloneref(game:GetService("Players"))
 local LocalPlayer = Players.LocalPlayer
-local Blacklist = {HarutaSwordNPC = true, FrameNPC = true, MechamaruBot = true}
 
 function M1DownslamAssist.Init(State)
+    local isValidTarget = State.TargetFilter.IsValid
     local Services = ReplicatedStorage:WaitForChild("Knit"):WaitForChild("Knit"):WaitForChild("Services")
     local toggleObject = State.Toggles.M1DownslamAssist
     local connections = {}
@@ -18,15 +18,13 @@ function M1DownslamAssist.Init(State)
 
     local function getTarget(character, root)
         local target = State.Variables.LockedTarget.Value
-        if target and target.Parent and not target:GetAttribute("Dead") and target:FindFirstChild("HumanoidRootPart") then return target end
+        if isValidTarget(target, State.Toggles.TeamCheck.Value) then return target end
         local folder = workspace:FindFirstChild("Characters")
         if not folder then return nil end
         local closest, distance = nil, State.Variables.Reach.Value
         for _, other in ipairs(folder:GetChildren()) do
             local otherRoot = other:FindFirstChild("HumanoidRootPart")
-            local info = other:FindFirstChild("Info")
-            if other ~= character and not Blacklist[other.Name] and not other:GetAttribute("Dead")
-                and otherRoot and info and not info:FindFirstChild("Block") then
+            if isValidTarget(other, State.Toggles.TeamCheck.Value) then
                 local d = (otherRoot.Position - root.Position).Magnitude
                 if d <= distance then closest, distance = other, d end
             end
@@ -101,3 +99,4 @@ function M1DownslamAssist.Init(State)
 end
 
 return M1DownslamAssist
+
