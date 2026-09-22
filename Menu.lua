@@ -280,7 +280,10 @@ function Menu.new(Title, ToggleKey)
             if Processed and not Focus and not Capture and Key ~= ToggleKey then return end
             if Dropdown and Key == Enum.KeyCode.Escape then Dropdown = nil; Render(); return end
             if Capture then
-                if Key ~= Enum.KeyCode.Escape and Key ~= ToggleKey and Key ~= Enum.KeyCode.Unknown then Capture.Value = Key.Name end
+                if Key ~= Enum.KeyCode.Escape and Key ~= ToggleKey and Key ~= Enum.KeyCode.Unknown then
+                    Capture.Value = Key.Name
+                    if Capture.Args.OnChanged then Capture.Args.OnChanged(Key.Name) end
+                end
                 Capture = nil
                 Render()
                 return
@@ -397,3 +400,4 @@ function Menu.new(Title, ToggleKey)
 end
 
 return Menu
+

@@ -37,6 +37,9 @@ local VariablesFolder = Instance.new("Folder")
 VariablesFolder.Name = "Variables"
 VariablesFolder.Parent = SettingsFolder
 
+local Config
+local Ranges = {M1JumpDelay = {0, 1}, SpeedMultiplier = {1, 50}, Reach = {1, 15}}
+
 local function BindToFolder(folderInstance, valueClassMapping, defaultValues)
     local cache = {}
     return setmetatable(cache, {
@@ -45,65 +48,38 @@ local function BindToFolder(folderInstance, valueClassMapping, defaultValues)
             if existing then return existing end
 
             local default = defaultValues[key]
-            local className = valueClassMapping[type(default)] or "StringValue"
-            if default == nil then
-                if key == "LockedTarget" or key:find("Target") then
-                    className = "ObjectValue"
-                else
-                    default = false
-                    className = "StringValue"
-                end
+            if folderInstance == TogglesFolder then default = false end
+            local className = key == "LockedTarget" and "ObjectValue" or valueClassMapping[type(default)] or "StringValue"
+            local group = folderInstance == TogglesFolder and "Toggles" or "Variables"
+            local persistent = key ~= "LockedTarget" and key ~= "Aim"
+            local saved = Config and Config.Data[group][key]
+            if persistent and type(saved) == type(default) then
+                if type(saved) ~= "number" or (saved == saved and math.abs(saved) < math.huge) then default = saved end
             end
-
+            local range = group == "Variables" and Ranges[key]
+            if range then default = math.clamp(default, range[1], range[2]) end
+            if key == "AimbotKey" then
+                local valid, keyCode = pcall(function() return Enum.KeyCode[default] end)
+                if not valid or not keyCode or default == "Unknown" or default == "Escape" or default == "K" then default = "C" end
+            end
             local valObj = Instance.new(className)
             valObj.Name = key
             valObj.Value = default
             valObj.Parent = folderInstance
+            if Config and persistent then
+                valObj.Changed:Connect(function() Config:Set(group, key, valObj.Value) end)
+            end
             return valObj
         end
     })
 end
-
--- Alphabetically ordered default values
-local ToggleDefaults = { 
-    Aim = false, 
-    AntiBlackhole = true,
-    AntiVoid = false,
-    AutoBurst = true,
-    BeamESP = true,
-    BlackFlash = true, 
-    DiamondInTheSky = true,
-    DomainESP = true,
-    DummyESP = true, 
-    ESP = true, 
-    HealthBar = true,
-    EvadeBar = true,
-    SpecialMeter = true,
-    UltimateBar = true,
-    Moveset = true,
-    PlayerInfo = true,
-    Tracers = true,
-    Gamepasses = true,
-    InstantInteract = true,
-    ItemESP = true, 
-    KillSound = true,
-    M1PingFix = true,
-    M1DownslamAssist = false,
-    MsgAura = true, 
-    Noclip = true, 
-    QTE = true,
-    Ratio = false,
-    Reach = true,
-    RouletteAutoCharacter = false,
-    TeamCheck = true,
-}
 
 local VariableDefaults = {
     M1JumpDelay = 0.35,
     SpeedMultiplier = 15,
     Reach = 15,
     LockedTarget = nil,
-    TargetIdentifier = "",
+    AimbotKey = "C",
 }
 
 local ClassMap = {
@@ -115,7 +91,7 @@ local ClassMap = {
 local StateStructure = {
     RouletteCharacters = {},
     Connections = setmetatable({}, { __mode = "v" }),
-    Toggles = BindToFolder(TogglesFolder, ClassMap, ToggleDefaults),
+    Toggles = BindToFolder(TogglesFolder, ClassMap, {}),
     Variables = BindToFolder(VariablesFolder, ClassMap, VariableDefaults),
 }
 
@@ -172,6 +148,14 @@ local function Load(Name)
     return Result
 end
 
+local ConfigModule = Load("Config")
+if type(ConfigModule) == "table" and type(ConfigModule.new) == "function" then
+    Config = ConfigModule.new()
+    for Mode, Name in pairs(Config.Data.RouletteCharacters) do
+        if type(Name) == "string" then CatstarState.RouletteCharacters[Mode] = Name end
+    end
+end
+
 local Menu = Load("Menu")
 if type(Menu) ~= "table" or type(Menu.new) ~= "function" then
     warn("Could not load the menu")
@@ -188,7 +172,7 @@ end)
 local Modules = {}
 local ModuleFailed = {}
 
-local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "Targeting", "KillSound", "DiamondInTheSky"}
+local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky"}
 
 task.spawn(function()
     while not Players.LocalPlayer do task.wait() end
@@ -241,7 +225,7 @@ local UiLayout = {
     {Type = "Slider",   Module = "Reach",             Args = {Title = "Reach Distance", Binding = CatstarState.Variables.Reach, Step = 1, Value = {Min = 1, Max = 15, Default = CatstarState.Variables.Reach.Value}, Callback = function(V) CatstarState.Variables.Reach.Value = V end}},
     
     {Type = "Section",  Args = {Title = "Aimbot Settings"}},
-    {Type = "Keybind",  Module = "Aimbot",            Args = {Title = "Aimbot Keybind", Value = "C", Callback = function() if Modules.Aimbot then Modules.Aimbot.Toggle(CatstarState) end end}},
+    {Type = "Keybind",  Module = "Aimbot",            Args = {Title = "Aimbot Keybind", Binding = CatstarState.Variables.AimbotKey, Value = CatstarState.Variables.AimbotKey.Value, OnChanged = function(V) CatstarState.Variables.AimbotKey.Value = V end, Callback = function() if Modules.Aimbot then Modules.Aimbot.Toggle(CatstarState) end end}},
     {Type = "Toggle",   Module = "Aimbot",            Args = {Title = "Team Check", Binding = CatstarState.Toggles.TeamCheck, Value = CatstarState.Toggles.TeamCheck.Value, Callback = function(V) CatstarState.Toggles.TeamCheck.Value = V end}},
 
     {Type = "Section",  Args = {Title = "Movement & Protection"}},
@@ -273,13 +257,12 @@ local UiLayout = {
     {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
     {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
 
-    {Type = "Section",  Args = {Title = "Targeting & Spectating"}},
-    {Type = "Input",    Module = "Targeting",        InitName = "None", Args = {Title = "Search Player", Placeholder = "Enter name...", Value = CatstarState.Variables.TargetIdentifier.Value, Callback = function(T) CatstarState.Variables.TargetIdentifier.Value = T end}},
-    {Type = "Button",   Module = "Targeting",        InitName = "None", Args = {Title = "Spectate", Callback = function() if Modules.Targeting then Modules.Targeting.Clicked(CatstarState) end end}},
 
     {Type = "Section",  Args = {Title = "Unlocks"}},
     {Type = "Toggle",   Module = "Gamepasses",        Args = {Title = "Free Gamepasses", Binding = CatstarState.Toggles.Gamepasses, Value = CatstarState.Toggles.Gamepasses.Value, Callback = function(V) CatstarState.Toggles.Gamepasses.Value = V end}},
     {Type = "Toggle",   Module = "KillSound",         Args = {Title = "Free Kill Sound", Binding = CatstarState.Toggles.KillSound, Value = CatstarState.Toggles.KillSound.Value, Callback = function(V) CatstarState.Toggles.KillSound.Value = V end}},
+    {Type = "Section",  Args = {Title = "Config"}},
+    {Type = "Button", Args = {Title = "Save Config", Callback = function() Window:SetStatus(Config and Config:Save() and "Config saved" or "Config saving unavailable or failed") end}},
     {Type = "Section",  Args = {Title = "Roulette"}},
     {Type = "Toggle",   Module = "RouletteAutoCharacter", Args = {Title = "Auto Character", Binding = CatstarState.Toggles.RouletteAutoCharacter, Value = CatstarState.Toggles.RouletteAutoCharacter.Value, Callback = function(V) CatstarState.Toggles.RouletteAutoCharacter.Value = V end}},
 }
@@ -311,7 +294,10 @@ for _, Element in ipairs(UiLayout) do
                                 local Key = Mode.Name:upper()
                                 Window:Add("Dropdown", {Title = Mode.Name, Options = Options,
                                     Value = CatstarState.RouletteCharacters[Key] or "",
-                                    Callback = function(Name) CatstarState.RouletteCharacters[Key] = Name ~= "" and Name or nil end})
+                                    Callback = function(Name)
+                                        CatstarState.RouletteCharacters[Key] = Name ~= "" and Name or nil
+                                        if Config then Config:Set("RouletteCharacters", Key, CatstarState.RouletteCharacters[Key]) end
+                                    end})
                             end
                         end
                     end, debug.traceback)
