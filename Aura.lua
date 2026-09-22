@@ -10,7 +10,12 @@ local LRI = "\u{2066}"
 local RLI = "\u{2067}" 
 local PDI = "\u{2069}" 
 
-local lastMsg = {}
+local messages = {}
+local cache = {}
+local cacheOrder = {}
+local queue = {}
+local working = false
+local lastWarning = -math.huge
 local LocalPlayer = Players.LocalPlayer
 local CHECK_INTERVAL = 0.1
 local lastCheck = 0
@@ -43,6 +48,40 @@ local function GetNameValue(pName)
     return value
 end
 
+local function translate(text)
+    if cache[text] then return cache[text] end
+    if type(request) ~= "function" then return nil, "request() unavailable" end
+    local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=" .. HttpService:UrlEncode(text)
+    local reason
+    for attempt = 1, 3 do
+        local ok, response = pcall(request, {Url = url, Method = "GET"})
+        local status = ok and type(response) == "table" and tonumber(response.StatusCode)
+        if status == 200 and type(response.Body) == "string" then
+            local decodedOK, decoded = pcall(HttpService.JSONDecode, HttpService, response.Body)
+            local segments = decodedOK and type(decoded) == "table" and decoded[1]
+            local parts = {}
+            if type(segments) == "table" then
+                for _, segment in ipairs(segments) do
+                    if type(segment) == "table" and type(segment[1]) == "string" then parts[#parts + 1] = segment[1] end
+                end
+            end
+            local result = table.concat(parts)
+            if result ~= "" then
+                cache[text] = result
+                cacheOrder[#cacheOrder + 1] = text
+                if #cacheOrder > 128 then cache[table.remove(cacheOrder, 1)] = nil end
+                return result
+            end
+            reason = "invalid translation response"
+        else
+            reason = status and ("HTTP " .. status) or "request failed"
+            if status and status >= 400 and status < 500 and status ~= 429 then break end
+        end
+        if attempt < 3 then task.wait(attempt * 2) end
+    end
+    return nil, reason
+end
+
 local function ComputeNameColor(pName)
     return NAME_COLORS[(GetNameValue(pName) % #NAME_COLORS) + 1]
 end
@@ -56,121 +95,96 @@ local function isRTL(text)
     return false
 end
 
--- Calculates Levenshtein edit distance to detect minor changes (e.g. <= 1 character away)
-local function getEditDistance(s1, s2)
-    local len1, len2 = #s1, #s2
-    local matrix = {}
-
-    for i = 0, len1 do
-        matrix[i] = { [0] = i }
-    end
-    for j = 0, len2 do
-        matrix[0][j] = j
-    end
-
-    for i = 1, len1 do
-        for j = 1, len2 do
-            local cost = (string.sub(s1, i, i) == string.sub(s2, j, j)) and 0 or 1
-            matrix[i][j] = math.min(
-                matrix[i - 1][j] + 1,
-                matrix[i][j - 1] + 1,
-                matrix[i - 1][j - 1] + cost
-            )
-        end
-    end
-
-    return matrix[len1][len2]
+local function escape(text)
+    return (text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
 end
 
 function Aura.Init(State)
     task.spawn(function()
         local BubbleConfig = TextChatService:WaitForChild("BubbleChatConfiguration", 99)
         if not BubbleConfig then return end
-        BubbleConfig.MaxDistance = 500 
+        BubbleConfig.MaxDistance = 500
         BubbleConfig.MinimizeDistance = 400
         BubbleConfig.TextSize = 20
     end)
-    
+
+    local function processQueue()
+        if working then return end
+        working = true
+        task.spawn(function()
+            while #queue > 0 do
+                local entry = table.remove(queue, 1)
+                local player = entry.Player
+                if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
+                    local translated, reason = translate(entry.Text)
+                    if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
+                        local display = entry.Text
+                        if translated and translated:lower() ~= entry.Text:lower() then display = display .. " (" .. translated .. ")" end
+                        if not entry.Displayed or (translated and display ~= entry.Text) then
+                            local channels = TextChatService:FindFirstChild("TextChannels")
+                            local channel = channels and channels:FindFirstChild("RBXGeneral")
+                            if channel then
+                                local direction = isRTL(entry.Text) and RLI or LRI
+                                channel:DisplaySystemMessage(string.format('%s<font color="#%s"><b>%s:</b></font> %s%s%s%s',
+                                    LRI, ComputeNameColor(player.Name):ToHex(), escape(player.Name), direction, escape(display), PDI, PDI))
+                            end
+                            local head = entry.Character:FindFirstChild("Head")
+                            if head and not entry.Displayed then Chat:Chat(head, entry.Text, Enum.ChatColor.White) end
+                            entry.Displayed = true
+                        end
+                        entry.Done = translated ~= nil
+                        entry.RetryAt = os.clock() + 15
+                        if not translated and os.clock() - lastWarning >= 30 then
+                            lastWarning = os.clock()
+                            warn("Message Aura translation failed: " .. tostring(reason) .. "; retrying later")
+                        end
+                    end
+                    task.wait(0.3)
+                end
+                entry.Queued = false
+            end
+            working = false
+        end)
+    end
+
     local conn = RunService.Heartbeat:Connect(function(deltaTime)
         lastCheck = lastCheck + deltaTime
         if lastCheck < CHECK_INTERVAL then return end
         lastCheck = 0
-
         if not State.Toggles.MsgAura.Value then return end
-        
-        local generalChannel = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
-        if not generalChannel then return end
-
+        local channels = TextChatService:FindFirstChild("TextChannels")
+        if not channels or not channels:FindFirstChild("RBXGeneral") then return end
+        local now = os.clock()
         for _, player in ipairs(Players:GetPlayers()) do
-            if player == LocalPlayer then continue end
-            
-            local char = player.Character
-            if not char then continue end
-            
-            local board = char:FindFirstChild("Board")
-            if not board then continue end
-            
-            local sGui = board:FindFirstChild("SurfaceGui")
-            local label = sGui and sGui:FindFirstChild("TextLabel")
-            if not label or label.Text == "" then continue end
-
-            -- Clean up newlines, carriage returns, and duplicate spaces from label.Text
-            local cleanedText = string.gsub(label.Text, "[\r\n]+", " ")
-            cleanedText = string.gsub(cleanedText, "%s+", " ")
-            cleanedText = string.match(cleanedText, "^%s*(.-)%s*$")
-
-            if #cleanedText == 0 then continue end
-
-            local rawMsg = cleanedText
-            local charName = player.Name
-            
-            if lastMsg[charName] == rawMsg then continue end
-            lastMsg[charName] = rawMsg
-            
-            task.spawn(function()
-                local displayMsg = rawMsg
-                
-                if type(request) == "function" then
-                    local apiUrl = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=" .. HttpService:UrlEncode(rawMsg)
-                    local responseSuccess, response = pcall(request, {
-                        Url = apiUrl,
-                        Method = "GET"
-                    })
-                    
-                    if responseSuccess and response and response.StatusCode == 200 then
-                        local decodeSuccess, decoded = pcall(function() return HttpService:JSONDecode(response.Body) end)
-                        if decodeSuccess and decoded and decoded[1] and decoded[1][1] and decoded[1][1][1] then
-                            local translatedText = decoded[1][1][1]
-                            local detectedLang = decoded[3]
-                            
-                            local lowerRaw = string.lower(rawMsg)
-                            local lowerTrans = string.lower(translatedText)
-                            
-                            -- Ignore if language is English or if translation is <= 1 edit distance away
-                            if detectedLang ~= "en" and getEditDistance(lowerRaw, lowerTrans) > 1 then
-                                displayMsg = string.format("%s (%s)", rawMsg, translatedText)
-                            end
-                        end
+            if player ~= LocalPlayer then
+                local char = player.Character
+                local board = char and char:FindFirstChild("Board")
+                local gui = board and board:FindFirstChild("SurfaceGui")
+                local label = gui and gui:FindFirstChild("TextLabel")
+                local text = label and label.Text:gsub("[\r\n]+", " "):gsub("%s+", " "):match("^%s*(.-)%s*$") or ""
+                if text == "" then
+                    messages[player] = nil
+                else
+                    local entry = messages[player]
+                    if not entry or entry.Text ~= text or entry.Character ~= char then
+                        entry = {Player = player, Character = char, Text = text, ChangedAt = now, RetryAt = 0}
+                        messages[player] = entry
+                    end
+                    if not entry.Done and not entry.Queued and now - entry.ChangedAt >= 0.5 and now >= entry.RetryAt then
+                        entry.Queued = true
+                        queue[#queue + 1] = entry
                     end
                 end
-
-                local nameColor = ComputeNameColor(charName):ToHex()
-                local directionMarker = isRTL(rawMsg) and RLI or LRI
-                local isolatedMsg = directionMarker .. displayMsg .. PDI
-
-                local formattedChat = string.format("%s<font color=\"#%s\"><b>%s:</b></font> %s%s", LRI, nameColor, charName, isolatedMsg, PDI)
-                
-                generalChannel:DisplaySystemMessage(formattedChat)
-                
-                local head = char:FindFirstChild("Head")
-                if head then
-                    Chat:Chat(head, rawMsg, Enum.ChatColor.White)
-                end
-            end)
+            end
         end
+        if #queue > 0 then processQueue() end
     end)
-    
     table.insert(State.Connections, conn)
+    table.insert(State.Connections, Players.PlayerRemoving:Connect(function(player) messages[player] = nil end))
+    table.insert(State.Connections, State.Toggles.MsgAura:GetPropertyChangedSignal("Value"):Connect(function()
+        messages = {}
+        queue = {}
+    end))
 end
 
 return Aura
