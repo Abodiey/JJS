@@ -145,7 +145,7 @@ function Aimbot.Toggle(State)
     Camera = workspace.CurrentCamera
 
     for _, obj in ipairs(characterFolder:GetChildren()) do
-        if not State.TargetFilter.IsValid(obj, State.Toggles.TeamCheck.Value) then continue end
+        if not State.TargetFilter.IsValid(obj, State.Toggles.TeamCheck.Value, true) then continue end
         
         local hrp = obj:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
@@ -194,7 +194,7 @@ function Aimbot.Init(State)
         end
         
         local target = State.Variables.LockedTarget.Value
-        if not State.TargetFilter.IsValid(target, State.Toggles.TeamCheck.Value) then 
+        if not State.TargetFilter.IsValid(target, State.Toggles.TeamCheck.Value, true) then 
             State.Variables.LockedTarget.Value = nil
             State.Toggles.Aim.Value = false
             HideAllBoxes() 
