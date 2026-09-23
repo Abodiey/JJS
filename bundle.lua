@@ -3414,13 +3414,14 @@ local Menu = {}
 function Menu.new(Title, ToggleKey)
     local Input = game:GetService("UserInputService")
     local Actions = game:GetService("ContextActionService")
+    local CoreGui = game:GetService("CoreGui")
     local ScrollAction = "CatstarMenuScroll"
     local Window = {Items = {}, Scroll = 0, Connections = {}, Drawings = {}, Visible = true, Destroyed = false}
     local Colors = {
-        Background = Color3.fromRGB(20, 20, 22),
-        Row = Color3.fromRGB(36, 36, 39), Border = Color3.fromRGB(62, 62, 66),
-        Text = Color3.fromRGB(245, 245, 247), Muted = Color3.fromRGB(152, 152, 160),
-        Accent = Color3.fromRGB(10, 132, 255), Green = Color3.fromRGB(48, 209, 88),
+        Background = Color3.fromRGB(242, 242, 247),
+        Row = Color3.fromRGB(255, 255, 255), Border = Color3.fromRGB(210, 210, 215),
+        Text = Color3.fromRGB(28, 28, 30), Muted = Color3.fromRGB(122, 122, 130),
+        Accent = Color3.fromRGB(0, 122, 255), Green = Color3.fromRGB(52, 199, 89),
     }
     local Position, Width, Height
     local Focus, Capture, Drag, Slider, ScrollDrag, Dropdown
@@ -3430,6 +3431,40 @@ function Menu.new(Title, ToggleKey)
     local Pools = {Square = {}, Text = {}, Circle = {}}
     local Used = {Square = 0, Text = 0, Circle = 0}
     local Render
+    local SyncingScroll = false
+
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "CatstarInput"
+    Gui.IgnoreGuiInset = true
+    Gui.ResetOnSpawn = false
+    Gui.DisplayOrder = 0
+    Gui.Parent = CoreGui
+
+    local Backing = Instance.new("Frame")
+    Backing.Name = "InputSurface"
+    Backing.BackgroundTransparency = 1
+    Backing.BorderSizePixel = 0
+    Backing.Active = true
+    Backing.Parent = Gui
+
+    local ScrollFrame = Instance.new("ScrollingFrame")
+    ScrollFrame.Name = "ScrollInput"
+    ScrollFrame.BackgroundTransparency = 1
+    ScrollFrame.BorderSizePixel = 0
+    ScrollFrame.ScrollBarThickness = 0
+    ScrollFrame.Active = true
+    ScrollFrame.ScrollingEnabled = true
+    ScrollFrame.Parent = Backing
+
+    local TextBox = Instance.new("TextBox")
+    TextBox.Name = "TextInput"
+    TextBox.BackgroundTransparency = 1
+    TextBox.TextTransparency = 1
+    TextBox.TextStrokeTransparency = 1
+    TextBox.ClearTextOnFocus = false
+    TextBox.MultiLine = false
+    TextBox.Visible = false
+    TextBox.Parent = Backing
 
     local function Connect(Signal, Callback)
         local Connection = Signal:Connect(Callback)
@@ -3515,6 +3550,8 @@ function Menu.new(Title, ToggleKey)
         if not Focus then return end
         local Item = Focus
         Focus = nil
+        TextBox.Visible = false
+        if TextBox:IsFocused() then TextBox:ReleaseFocus() end
         if Commit then Item.Value = Item.Edit; Callback(Item, Item.Value) end
     end
 
@@ -3526,9 +3563,11 @@ function Menu.new(Title, ToggleKey)
         if Window.Visible and workspace.CurrentCamera then
             Measure()
             local X, Y = Position.X, Position.Y
-            Rounded(X + 3, Y + 5, Width, Height, 18, Color3.fromRGB(7, 7, 9))
+            Rounded(X + 3, Y + 5, Width, Height, 18, Color3.fromRGB(193, 193, 200))
             Rounded(X, Y, Width, Height, 18, Colors.Border)
             Rounded(X + 1, Y + 1, Width - 2, Height - 2, 17, Colors.Background)
+            Backing.Position = UDim2.fromOffset(X, Y)
+            Backing.Size = UDim2.fromOffset(Width, Height)
             Text(Title, X + 18, Y + 16, Colors.Text, 23, Width - 72)
             Text("JJS  /  " .. ToggleKey.Name .. " to show or hide", X + 19, Y + 44, Colors.Muted, 12, Width - 50)
             Hit(X, Y, Width - 44, 66, "Drag")
@@ -3544,6 +3583,14 @@ function Menu.new(Title, ToggleKey)
                 local Space = math.max(1, Bottom - Top)
                 Window.MaxScroll = math.max(0, Total - Space)
                 Window.Scroll = math.max(0, math.min(Window.Scroll, Window.MaxScroll))
+                ScrollFrame.Position = UDim2.fromOffset(0, Top - Y)
+                ScrollFrame.Size = UDim2.fromOffset(Width, Space)
+                ScrollFrame.CanvasSize = UDim2.fromOffset(0, Total)
+                if ScrollFrame.CanvasPosition.Y ~= Window.Scroll then
+                    SyncingScroll = true
+                    ScrollFrame.CanvasPosition = Vector2.new(0, Window.Scroll)
+                    SyncingScroll = false
+                end
                 Hit(X, Top, Width, Space, "Scroll", Window)
                 local RowY = Top - Window.Scroll
                 local DropdownY
@@ -3563,8 +3610,8 @@ function Menu.new(Title, ToggleKey)
                             local Reserve = Kind == "Dropdown" and 235 or ((Kind == "Keybind" or Kind == "Toggle") and 90 or 75)
                             Text(Item.Title, Left + Indent, RowY + 10, Color, 13, Right - Left - Reserve - Indent)
                             if Kind == "Toggle" then
-                                Rounded(Right - 61, RowY + 8, 42, 23, 11.5, Item.Value and Available and Colors.Green or Colors.Border)
-                                Circle(Right - (Item.Value and 31 or 49), RowY + 19.5, 9, Available and Colors.Text or Colors.Muted)
+                                Rounded(Right - 61, RowY + 8, 42, 23, 11.5, Item.Value and Available and Colors.Green or Color3.fromRGB(229, 229, 234))
+                                Circle(Right - (Item.Value and 31 or 49), RowY + 19.5, 9, Colors.Row)
                             elseif Kind == "Dropdown" then
                                 Text(Item.Value ~= "" and Item.Value or "None", Right - 219, RowY + 10, Colors.Accent, 13, 181)
                                 Text(Dropdown == Item and "-" or "+", Right - 30, RowY + 10, Colors.Muted, 14)
@@ -3580,11 +3627,16 @@ function Menu.new(Title, ToggleKey)
                                 local Fraction = (Item.Value - Range.Min) / (Range.Max - Range.Min)
                                 Box(TrackX, RowY + 37, TrackW, 3, Colors.Border)
                                 Box(TrackX, RowY + 37, TrackW * Fraction, 3, Colors.Accent)
-                                Circle(TrackX + TrackW * Fraction, RowY + 38, 7, Colors.Text)
+                                Circle(TrackX + TrackW * Fraction, RowY + 38, 8, Colors.Accent)
+                                Circle(TrackX + TrackW * Fraction, RowY + 38, 6, Colors.Row)
                                 Item.TrackX, Item.TrackW = TrackX, TrackW
                             elseif Kind == "Input" then
                                 local Value = Focus == Item and Item.Edit .. "|" or Item.Value
                                 Text(Value ~= "" and Value or Item.Args.Placeholder or "Type here...", Left + 12, RowY + 33, Focus == Item and Colors.Accent or Colors.Muted, 13, Right - Left - 36)
+                                if Focus == Item then
+                                    TextBox.Position = UDim2.fromOffset(Left - X + 8, RowY - Y + 3)
+                                    TextBox.Size = UDim2.fromOffset(Right - Left - 18, H - 7)
+                                end
                             end
                             if Available then Hit(Left, RowY + 2, Right - Left - 7, H - 5, Kind, Item) end
                         end
@@ -3606,14 +3658,14 @@ function Menu.new(Title, ToggleKey)
                     local PY = math.max(Top, math.min(DropdownY, Bottom - H))
                     Popup = {X = Left + 4, Y = PY, W = Right - Left - 15, H = H, Count = Count}
                     Hit(X, Y, Width, Height, "CloseDropdown")
-                    Rounded(Popup.X + 2, PY + 3, Popup.W, H, 10, Color3.fromRGB(7, 7, 9))
+                    Rounded(Popup.X + 2, PY + 3, Popup.W, H, 10, Color3.fromRGB(193, 193, 200))
                     Rounded(Popup.X, PY, Popup.W, H, 10, Colors.Border)
                     Rounded(Popup.X + 1, PY + 1, Popup.W - 2, H - 2, 9, Colors.Row)
                     for Index = 1, Count do
                         local Value = Options[OptionScroll + Index]
                         local OY = PY + 6 + (Index - 1) * 32
                         if Value == Dropdown.Value then Rounded(Popup.X + 5, OY, Popup.W - 18, 30, 6, Colors.Accent) end
-                        Text(Value ~= "" and Value or "None", Popup.X + 14, OY + 7, Colors.Text, 13, Popup.W - 40)
+                        Text(Value ~= "" and Value or "None", Popup.X + 14, OY + 7, Value == Dropdown.Value and Colors.Row or Colors.Text, 13, Popup.W - 40)
                         Hit(Popup.X + 5, OY, Popup.W - 18, 32, "Option", {Item = Dropdown, Value = Value})
                     end
                     if #Options > Count then
@@ -3635,6 +3687,7 @@ function Menu.new(Title, ToggleKey)
 
     function Window:SetVisible(Value)
         self.Visible = Value
+        Gui.Enabled = Value
         FinishInput(true)
         Capture, Drag, Slider, ScrollDrag, Dropdown = nil, nil, nil, nil, nil
         Render()
@@ -3651,6 +3704,7 @@ function Menu.new(Title, ToggleKey)
         Actions:UnbindAction(ScrollAction)
         for _, Connection in ipairs(self.Connections) do Connection:Disconnect() end
         for _, Slot in ipairs(self.Drawings) do Slot.Object:Remove() end
+        Gui:Destroy()
         self.Connections, self.Drawings = {}, {}
     end
 
@@ -3681,13 +3735,28 @@ function Menu.new(Title, ToggleKey)
         if Value ~= Item.Value then Item.Value = Value; Callback(Item, Value); Render() end
     end
 
-    local Shifted = {One = "!", Two = "@", Three = "#", Four = "$", Five = "%", Six = "^", Seven = "&", Eight = "*", Nine = "(", Zero = ")", Minus = "_", Equals = "+"}
-    local Characters = {Zero = "0", One = "1", Two = "2", Three = "3", Four = "4", Five = "5", Six = "6", Seven = "7", Eight = "8", Nine = "9", Minus = "-", Equals = "=", Space = " ", Period = "."}
+    Connect(TextBox:GetPropertyChangedSignal("Text"), function()
+        if Focus then Focus.Edit = TextBox.Text; Render() end
+    end)
+    Connect(TextBox.FocusLost, function()
+        if Focus then FinishInput(true); Render() end
+    end)
+    Connect(ScrollFrame:GetPropertyChangedSignal("CanvasPosition"), function()
+        if SyncingScroll or Window.Destroyed or not Window.Visible then return end
+        FinishInput(true)
+        Dropdown = nil
+        Window.Scroll = ScrollFrame.CanvasPosition.Y
+        Render()
+    end)
+
     Connect(Input.InputBegan, function(Event, Processed)
         if Window.Destroyed then return end
         local Key = Event.KeyCode
         if Event.UserInputType == Enum.UserInputType.Keyboard then
-            if Input:GetFocusedTextBox() then return end
+            if Input:GetFocusedTextBox() then
+                if Focus and Key == Enum.KeyCode.Escape then FinishInput(false); Render() end
+                return
+            end
             if Processed and not Focus and not Capture and Key ~= ToggleKey then return end
             if Dropdown and Key == Enum.KeyCode.Escape then Dropdown = nil; Render(); return end
             if Capture then
@@ -3696,24 +3765,6 @@ function Menu.new(Title, ToggleKey)
                     if Capture.Args.OnChanged then Capture.Args.OnChanged(Key.Name) end
                 end
                 Capture = nil
-                Render()
-                return
-            end
-            if Focus then
-                local Name = Key.Name
-                if Key == Enum.KeyCode.Return then FinishInput(true)
-                elseif Key == Enum.KeyCode.Escape then FinishInput(false)
-                elseif Key == Enum.KeyCode.Backspace then Focus.Edit = Focus.Edit:sub(1, -2)
-                elseif (Input:IsKeyDown(Enum.KeyCode.LeftControl) or Input:IsKeyDown(Enum.KeyCode.RightControl)) then
-                    if Name == "V" and getclipboard then
-                        local Success, Value = pcall(getclipboard)
-                        if Success and type(Value) == "string" then Focus.Edit = (Focus.Edit .. Value:gsub("[^%w_ .%-]", "")):sub(1, 64) end
-                    elseif Name == "A" then Focus.Edit = "" end
-                else
-                    local Shift = Input:IsKeyDown(Enum.KeyCode.LeftShift) or Input:IsKeyDown(Enum.KeyCode.RightShift)
-                    local Character = #Name == 1 and (Shift and Name or Name:lower()) or (Shift and Shifted[Name] or Characters[Name])
-                    if Character then Focus.Edit = (Focus.Edit .. Character):sub(1, 64) end
-                end
                 Render()
                 return
             end
@@ -3746,7 +3797,12 @@ function Menu.new(Title, ToggleKey)
                 elseif Kind == "Toggle" then Item.Value = not Item.Value; Callback(Item, Item.Value)
                 elseif Kind == "Button" then task.spawn(function() Callback(Item); Render() end)
                 elseif Kind == "Keybind" then Capture = Item
-                elseif Kind == "Input" then Focus = Item; Item.Edit = Item.Value or ""
+                elseif Kind == "Input" then
+                    Focus = Item
+                    Item.Edit = Item.Value or ""
+                    TextBox.Text = Item.Edit
+                    TextBox.Visible = true
+                    TextBox:CaptureFocus()
                 elseif Kind == "Slider" then Slider = Item; SetSlider(Item, Point.X)
                 elseif Kind == "ScrollBar" then
                     ScrollDrag = Item
