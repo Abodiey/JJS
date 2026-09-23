@@ -148,7 +148,7 @@ function Aimbot.Toggle(State)
     Camera = workspace.CurrentCamera
 
     for _, obj in ipairs(characterFolder:GetChildren()) do
-        if not State.TargetFilter.IsValid(obj, State.Toggles.TeamCheck.Value) then continue end
+        if not State.TargetFilter.IsValid(obj, State.Toggles.TeamCheck.Value, true) then continue end
         
         local hrp = obj:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
@@ -197,7 +197,7 @@ function Aimbot.Init(State)
         end
         
         local target = State.Variables.LockedTarget.Value
-        if not State.TargetFilter.IsValid(target, State.Toggles.TeamCheck.Value) then 
+        if not State.TargetFilter.IsValid(target, State.Toggles.TeamCheck.Value, true) then 
             State.Variables.LockedTarget.Value = nil
             State.Toggles.Aim.Value = false
             HideAllBoxes() 
@@ -5216,7 +5216,7 @@ local Players = cloneref(game:GetService("Players"))
 local LocalPlayer = Players.LocalPlayer
 local Blacklist = {EarthenInsect = true, HarutaSwordNPC = true, FrameNPC = true, MechamaruBot = true}
 
-function TargetFilter.IsValid(character, teamCheck)
+function TargetFilter.IsValid(character, teamCheck, allowBlocking)
     if typeof(character) ~= "Instance" or not character.Parent or character == LocalPlayer.Character
         or Blacklist[character.Name] or character:GetAttribute("Dead") then return false end
     if character.Name == "KuroClone" then
@@ -5224,7 +5224,7 @@ function TargetFilter.IsValid(character, teamCheck)
         if not owner or owner.Value == LocalPlayer then return false end
     end
     local info = character:FindFirstChild("Info")
-    if not character:FindFirstChild("HumanoidRootPart") or not info or info:FindFirstChild("Block") then return false end
+    if not character:FindFirstChild("HumanoidRootPart") or not info or (not allowBlocking and info:FindFirstChild("Block")) then return false end
     if teamCheck and LocalPlayer.Team then
         local player = Players:GetPlayerFromCharacter(character)
         if player and player.Team == LocalPlayer.Team then return false end
