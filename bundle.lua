@@ -525,6 +525,15 @@ function Aura.Init(State)
         BubbleConfig.TextSize = 20
     end)
 
+    local function display(entry, text)
+        local channels = TextChatService:FindFirstChild("TextChannels")
+        local channel = channels and channels:FindFirstChild("RBXGeneral")
+        if not channel then return end
+        local direction = isRTL(text) and RLI or LRI
+        channel:DisplaySystemMessage(string.format('%s<font color="#%s"><b>%s:</b></font> %s%s%s%s',
+            LRI, ComputeNameColor(entry.Player.Name):ToHex(), escape(entry.Player.Name), direction, escape(text), PDI, PDI))
+    end
+
     local function processQueue()
         if working then return end
         working = true
@@ -535,19 +544,8 @@ function Aura.Init(State)
                 if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
                     local translated, reason = translate(entry.Text)
                     if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
-                        local display = entry.Text
-                        if translated and translated:lower() ~= entry.Text:lower() then display = display .. " (" .. translated .. ")" end
-                        if not entry.Displayed or (translated and display ~= entry.Text) then
-                            local channels = TextChatService:FindFirstChild("TextChannels")
-                            local channel = channels and channels:FindFirstChild("RBXGeneral")
-                            if channel then
-                                local direction = isRTL(entry.Text) and RLI or LRI
-                                channel:DisplaySystemMessage(string.format('%s<font color="#%s"><b>%s:</b></font> %s%s%s%s',
-                                    LRI, ComputeNameColor(player.Name):ToHex(), escape(player.Name), direction, escape(display), PDI, PDI))
-                            end
-                            local head = entry.Character:FindFirstChild("Head")
-                            if head and not entry.Displayed then Chat:Chat(head, entry.Text, Enum.ChatColor.White) end
-                            entry.Displayed = true
+                        if translated and translated:lower() ~= entry.Text:lower() then
+                            display(entry, "(" .. translated .. ")")
                         end
                         entry.Done = translated ~= nil
                         entry.RetryAt = os.clock() + 15
@@ -586,6 +584,9 @@ function Aura.Init(State)
                     if not entry or entry.Text ~= text or entry.Character ~= char then
                         entry = {Player = player, Character = char, Text = text, ChangedAt = now, RetryAt = 0}
                         messages[player] = entry
+                        display(entry, text)
+                        local head = char:FindFirstChild("Head")
+                        if head then Chat:Chat(head, text, Enum.ChatColor.White) end
                     end
                     if not entry.Done and not entry.Queued and now - entry.ChangedAt >= 0.5 and now >= entry.RetryAt then
                         entry.Queued = true
