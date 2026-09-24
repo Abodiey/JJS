@@ -250,8 +250,10 @@ function Menu.new(Title, ToggleKey)
                             if Window.Items[Next].Kind == "Section" then break end
                             GroupHeight = GroupHeight + Window.Items[Next].Height
                         end
-                        if GroupHeight > 0 and GroupY + Entry.Height < Bottom and GroupY + Entry.Height + GroupHeight > Top then
-                            Rounded(Left, GroupY + Entry.Height, Right - Left - 7, GroupHeight, 13, Colors.Row)
+                        local GroupTop = math.max(Top, GroupY + Entry.Height)
+                        local GroupBottom = math.min(Bottom, GroupY + Entry.Height + GroupHeight)
+                        if GroupBottom > GroupTop then
+                            Rounded(Left, GroupTop, Right - Left - 7, GroupBottom - GroupTop, 13, Colors.Row)
                         end
                     end
                     GroupY = GroupY + Entry.Height
@@ -260,7 +262,7 @@ function Menu.new(Title, ToggleKey)
                 local DropdownY
                 for Index, Item in ipairs(Window.Items) do
                     local H = Item.Height
-                    if RowY < Bottom and RowY + H > Top then
+                    if RowY >= Top and RowY + H <= Bottom then
                         local Kind = Item.Kind
                         local Available = Enabled(Item)
                         local LabelColor = Available and Colors.Text or Colors.DisabledText
