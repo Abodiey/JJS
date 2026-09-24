@@ -80,6 +80,9 @@ local VariableDefaults = {
     Reach = 15,
     LockedTarget = nil,
     AimbotKey = "C",
+    NotifyJoinScope = "Everyone",
+    NotifyLeaveScope = "Everyone",
+    NotifyDeathScope = "Friends + Group",
 }
 
 local ClassMap = {
@@ -179,7 +182,7 @@ CatstarState.TargetFilter = TargetFilter
 local Modules = {}
 local ModuleFailed = {}
 
-local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky"}
+local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky", "Notifications"}
 
 task.spawn(function()
     while not Players.LocalPlayer do task.wait() end
@@ -259,6 +262,18 @@ local UiLayout = {
     {Type = "Toggle",   Module = "DummyESP",          Args = {Title = "Dummy ESP", Binding = CatstarState.Toggles.DummyESP, Value = CatstarState.Toggles.DummyESP.Value, Callback = function(V) CatstarState.Toggles.DummyESP.Value = V end}},
     {Type = "Toggle",   Module = "ItemESP",           Args = {Title = "Item ESP", Binding = CatstarState.Toggles.ItemESP, Value = CatstarState.Toggles.ItemESP.Value, Callback = function(V) CatstarState.Toggles.ItemESP.Value = V end}},
     {Type = "Toggle",   Module = "Aura",              Args = {Title = "Message Aura", Binding = CatstarState.Toggles.MsgAura, Value = CatstarState.Toggles.MsgAura.Value, Callback = function(V) CatstarState.Toggles.MsgAura.Value = V end}},
+    
+    {Type = "Section",  Args = {Title = "Notifications"}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Notifications", Binding = CatstarState.Toggles.Notifications, Value = CatstarState.Toggles.Notifications.Value, Callback = function(V) CatstarState.Toggles.Notifications.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Joins", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyJoins, Value = CatstarState.Toggles.NotifyJoins.Value, Callback = function(V) CatstarState.Toggles.NotifyJoins.Value = V end}},
+    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Join scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyJoinScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyJoinScope.Value, Callback = function(V) CatstarState.Variables.NotifyJoinScope.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Leaves", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyLeaves, Value = CatstarState.Toggles.NotifyLeaves.Value, Callback = function(V) CatstarState.Toggles.NotifyLeaves.Value = V end}},
+    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Leave scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyLeaveScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyLeaveScope.Value, Callback = function(V) CatstarState.Variables.NotifyLeaveScope.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Emote spending", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyBuys, Value = CatstarState.Toggles.NotifyBuys.Value, Callback = function(V) CatstarState.Toggles.NotifyBuys.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Deaths", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyDeaths, Value = CatstarState.Toggles.NotifyDeaths.Value, Callback = function(V) CatstarState.Toggles.NotifyDeaths.Value = V end}},
+    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Death scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyDeathScope, Options = {"Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyDeathScope.Value, Callback = function(V) CatstarState.Variables.NotifyDeathScope.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate starts", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUlts, Value = CatstarState.Toggles.NotifyUlts.Value, Callback = function(V) CatstarState.Toggles.NotifyUlts.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate ends", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUnults, Value = CatstarState.Toggles.NotifyUnults.Value, Callback = function(V) CatstarState.Toggles.NotifyUnults.Value = V end}},
     
     {Type = "Section",  Args = {Title = "Utility Mechanics"}},
     {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
