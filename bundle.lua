@@ -3417,7 +3417,7 @@ function Menu.new(Title, ToggleKey)
     local CoreGui = game:GetService("CoreGui")
     local RunService = game:GetService("RunService")
     local ScrollAction = "CatstarMenuScroll"
-    local Window = {Items = {}, Scroll = 0, Connections = {}, Drawings = {}, Visible = true, Reveal = 1, PopupReveal = 0, Destroyed = false}
+    local Window = {Items = {}, Scroll = 0, Connections = {}, Drawings = {}, Visible = true, Reveal = 1, Destroyed = false}
     local Colors = {
         Background = Color3.fromRGB(242, 242, 247),
         Row = Color3.fromRGB(255, 255, 255),
@@ -3432,8 +3432,7 @@ function Menu.new(Title, ToggleKey)
         SwitchOff = Color3.fromRGB(209, 209, 214),
     }
     local Position, Width, Height
-    local Focus, Capture, Drag, Slider, ScrollDrag, Dropdown, PopupItem, Hovered
-    local OptionScroll, Popup = 0, nil
+    local Focus, Capture, Drag, Slider, ScrollDrag, Dropdown, Hovered
     local Status = "Loading modules..."
     local Hits, Layer = {}, 0
     local Pools = {Square = {}, Text = {}, Circle = {}}
@@ -3480,18 +3479,16 @@ function Menu.new(Title, ToggleKey)
         end)
     end
 
+    local function ItemHeight(Item)
+        return Item.Height + (Item.ExpandedHeight or 0) * (Item.Expanded or 0)
+    end
+
     local function SetDropdown(Item)
+        if Dropdown == Item then Item = nil end
+        local Previous = Dropdown
         Dropdown = Item
-        if Item then
-            PopupItem = Item
-            Window.PopupReveal = 0
-            Animate(Window, "PopupReveal", 1, 0.18)
-        elseif PopupItem then
-            local Closing = PopupItem
-            Animate(Window, "PopupReveal", 0, 0.14, function()
-                if not Dropdown and PopupItem == Closing then PopupItem = nil end
-            end)
-        end
+        if Previous and Previous ~= Item then Animate(Previous, "Expanded", 0, 0.18) end
+        if Item then Animate(Item, "Expanded", 1, 0.2) end
     end
 
     local function Press(Item)
@@ -3626,7 +3623,6 @@ function Menu.new(Title, ToggleKey)
         if Window.Destroyed then return end
         Hits, Layer = {}, 0
         Used.Square, Used.Text, Used.Circle = 0, 0, 0
-        Popup = nil
         RenderAlpha = Window.Reveal
         if (Window.Visible or Window.Reveal > 0.001) and workspace.CurrentCamera then
             Measure()
@@ -3640,7 +3636,7 @@ function Menu.new(Title, ToggleKey)
             local Top, Bottom = Y + 76, Y + Height - 42
             if Bottom > Top then
                 local Total = 0
-                for _, Item in ipairs(Window.Items) do Total = Total + Item.Height end
+                for _, Item in ipairs(Window.Items) do Total = Total + ItemHeight(Item) end
                 local Space = math.max(1, Bottom - Top)
                 Window.MaxScroll = math.max(0, Total - Space)
                 Window.Scroll = math.max(0, math.min(Window.Scroll, Window.MaxScroll))
@@ -3659,7 +3655,7 @@ function Menu.new(Title, ToggleKey)
                         local GroupHeight = 0
                         for Next = Index + 1, #Window.Items do
                             if Window.Items[Next].Kind == "Section" then break end
-                            GroupHeight = GroupHeight + Window.Items[Next].Height
+                            GroupHeight = GroupHeight + ItemHeight(Window.Items[Next])
                         end
                         local GroupTop = math.max(Top, GroupY + Entry.Height)
                         local GroupBottom = math.min(Bottom, GroupY + Entry.Height + GroupHeight)
@@ -3667,12 +3663,12 @@ function Menu.new(Title, ToggleKey)
                             Rounded(Left, GroupTop, Right - Left - 7, GroupBottom - GroupTop, 13, Colors.Row)
                         end
                     end
-                    GroupY = GroupY + Entry.Height
+                    GroupY = GroupY + ItemHeight(Entry)
                 end
                 local RowY = Top - Window.Scroll
-                local DropdownY
                 for Index, Item in ipairs(Window.Items) do
                     local H = Item.Height
+                    local FullH = ItemHeight(Item)
                     if RowY >= Top and RowY + H <= Bottom then
                         local Kind = Item.Kind
                         local Available = Enabled(Item)
@@ -3696,7 +3692,6 @@ function Menu.new(Title, ToggleKey)
                             elseif Kind == "Dropdown" then
                                 Text(Item.Value ~= "" and Item.Value or "None", Right - 219, RowY + 14, ValueColor, 13, 181)
                                 Text(Dropdown == Item and "^" or "v", Right - 31, RowY + 14, Available and Colors.Muted or Colors.DisabledText, 13)
-                                if PopupItem == Item then DropdownY = RowY + H end
                             elseif Kind == "Button" then
                                 Text(">", Right - 30, RowY + 14, ValueColor, 14)
                             elseif Kind == "Keybind" then
@@ -3720,7 +3715,7 @@ function Menu.new(Title, ToggleKey)
                                 end
                             end
                             local Next = Window.Items[Index + 1]
-                            if Next and Next.Kind ~= "Section" then Box(Left + 16, RowY + H - 1, Right - Left - 39, 1, Colors.Border) end
+                            if (Next and Next.Kind ~= "Section") or (Kind == "Dropdown" and Item.Expanded > 0) then Box(Left + 16, RowY + H - 1, Right - Left - 39, 1, Colors.Border) end
                             if Available then
                                 local HitTop = math.max(Top, RowY + 2)
                                 local HitBottom = math.min(Bottom, RowY + H - 3)
@@ -3728,7 +3723,23 @@ function Menu.new(Title, ToggleKey)
                             end
                         end
                     end
-                    RowY = RowY + H
+                    if Item.Kind == "Dropdown" and Item.Expanded > 0.001 then
+                        local Limit = RowY + H + Item.ExpandedHeight * Item.Expanded
+                        local Available = Enabled(Item)
+                        for OptionIndex, Value in ipairs(Item.Args.Options) do
+                            local OptionY = RowY + H + (OptionIndex - 1) * 36
+                            if OptionY >= Top and OptionY + 36 <= Bottom and OptionY + 36 <= Limit + 0.01 then
+                                if Value == Item.Value then
+                                    Rounded(Left + 8, OptionY + 2, Right - Left - 23, 32, 8, Colors.Hover)
+                                    Circle(Right - 31, OptionY + 18, 5, Available and Colors.Accent or Colors.DisabledControl)
+                                end
+                                Text(Value ~= "" and Value or "None", Left + 30, OptionY + 9, Available and Colors.Text or Colors.DisabledText, 13, Right - Left - 77)
+                                if OptionIndex < #Item.Args.Options then Box(Left + 30, OptionY + 35, Right - Left - 62, 1, Colors.Border) end
+                                if Available and Dropdown == Item then Hit(Left + 8, OptionY, Right - Left - 23, 36, "Option", {Item = Item, Value = Value}) end
+                            end
+                        end
+                    end
+                    RowY = RowY + FullH
                 end
                 if Window.MaxScroll > 0 then
                     local Thumb = math.max(24, Space * Space / Total)
@@ -3749,34 +3760,6 @@ function Menu.new(Title, ToggleKey)
                 Hit(X, Y, Width - 44, 66, "Drag")
                 Hit(X + Width - 43, Y + 6, 36, 42, "Hide")
                 Text(Status, Left, Y + Height - 26, Colors.Muted, 11, Right - Left)
-                if PopupItem and DropdownY and Window.PopupReveal > 0.001 then
-                    local Options = PopupItem.Args.Options
-                    local Count = math.min(#Options, 6, math.max(1, math.floor((Space - 12) / 36)))
-                    OptionScroll = math.max(0, math.min(OptionScroll, #Options - Count))
-                    local H = Count * 36 + 12
-                    local PY = math.max(Top, math.min(DropdownY, Bottom - H)) + (1 - Window.PopupReveal) * 8
-                    Popup = Dropdown and {X = Left + 4, Y = PY, W = Right - Left - 15, H = H, Count = Count} or nil
-                    if Dropdown then Hit(X, Y, Width, Height, "CloseDropdown") end
-                    RenderAlpha = Window.Reveal * Window.PopupReveal
-                    Rounded(Left + 6, PY + 4, Right - Left - 15, H, 12, Color3.fromRGB(190, 190, 198))
-                    Rounded(Left + 4, PY, Right - Left - 15, H, 12, Colors.Border)
-                    Rounded(Left + 5, PY + 1, Right - Left - 17, H - 2, 11, Colors.Row)
-                    for Index = 1, Count do
-                        local Value = Options[OptionScroll + Index]
-                        local OY = PY + 6 + (Index - 1) * 36
-                        if Value == PopupItem.Value then Rounded(Left + 9, OY, Right - Left - 28, 34, 8, Colors.Accent) end
-                        Text(Value ~= "" and Value or "None", Left + 18, OY + 9, Value == PopupItem.Value and Colors.Row or Colors.Text, 13, Right - Left - 48)
-                        if Dropdown then Hit(Left + 9, OY, Right - Left - 28, 36, "Option", {Item = PopupItem, Value = Value}) end
-                    end
-                    if #Options > Count then
-                        local TrackH = H - 16
-                        local ThumbH = math.max(8, TrackH * Count / #Options)
-                        Box(Right - 10, PY + 8 + (TrackH - ThumbH) * OptionScroll / (#Options - Count), 3, ThumbH, Colors.Muted)
-                    end
-                    RenderAlpha = Window.Reveal
-                elseif not Dropdown then
-                    Popup = nil
-                end
             end
         end
         for Kind, Pool in pairs(Pools) do
@@ -3816,6 +3799,8 @@ function Menu.new(Title, ToggleKey)
             Height = Kind == "Section" and 56 or ((Kind == "Slider" or Kind == "Input") and 70 or 50)}
         Item.Value = Kind == "Slider" and Options.Value.Default or Options.Value
         Item.Switch = Kind == "Toggle" and (Item.Value and 1 or 0) or 0
+        Item.Expanded = 0
+        Item.ExpandedHeight = Kind == "Dropdown" and #Options.Options * 36 or 0
         function Item:SetTitle(Value) self.Title = Value; Render() end
         function Item:SetDesc(Value) self.Description = Value end
         function Item:SetEnabled(Value) self.Enabled = Value; Render() end
@@ -3849,7 +3834,6 @@ function Menu.new(Title, ToggleKey)
     Connect(ScrollFrame:GetPropertyChangedSignal("CanvasPosition"), function()
         if SyncingScroll or Window.Destroyed or not Window.Visible then return end
         FinishInput(true)
-        Dropdown = nil
         Window.Scroll = ScrollFrame.CanvasPosition.Y
         Render()
     end)
@@ -3891,9 +3875,6 @@ function Menu.new(Title, ToggleKey)
                 if Kind == "Dropdown" then
                     Press(Item)
                     SetDropdown(Item)
-                    OptionScroll = 0
-                    for Index, Value in ipairs(Item.Args.Options) do if Value == Item.Value then OptionScroll = math.max(0, Index - 3); break end end
-                elseif Kind == "CloseDropdown" then SetDropdown(nil)
                 elseif Kind == "Option" then
                     Item.Item.Value = Item.Value
                     Callback(Item.Item, Item.Value)
@@ -3948,14 +3929,12 @@ function Menu.new(Title, ToggleKey)
         if InputState == Enum.UserInputState.Change then
             FinishInput(true)
             Capture, Slider = nil, nil
-            if Dropdown and Popup and Inside(Point, Popup) then
-                OptionScroll = math.max(0, math.min(#Dropdown.Args.Options - Popup.Count, OptionScroll - Event.Position.Z))
-                Render()
-            else
-                SetDropdown(nil)
-                local TargetScroll = math.max(0, math.min(Window.MaxScroll, Window.Scroll - Event.Position.Z * 47))
-                Animate(Window, "Scroll", TargetScroll, 0.2)
+            local Pending = Window.Scroll
+            for _, Animation in ipairs(Animations) do
+                if Animation.Object == Window and Animation.Key == "Scroll" then Pending = Animation.Target end
             end
+            local TargetScroll = math.max(0, math.min(Window.MaxScroll, Pending - Event.Position.Z * 47))
+            Animate(Window, "Scroll", TargetScroll, 0.2)
         end
         return Enum.ContextActionResult.Sink
     end, false, Enum.ContextActionPriority.High.Value + 1, Enum.UserInputType.MouseWheel)
