@@ -22,6 +22,8 @@ local lastCheck = 0
 local nextRequestAt = 0
 local rateLimitWait = 60
 local REQUEST_INTERVAL = 2
+local googleHosts = {"translate.googleapis.com", "translate.google.com"}
+local googleRetryAt = {0, 0}
 
 -- Standard Roblox Chat Colors
 local NAME_COLORS = {
@@ -55,11 +57,16 @@ local function translate(text)
     if cache[text] then return cache[text] end
     if type(request) ~= "function" then return nil, "request() unavailable" end
     if os.clock() < nextRequestAt then return nil, "waiting for translator", true end
-    local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=" .. HttpService:UrlEncode(text)
+    local path = "/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=" .. HttpService:UrlEncode(text)
     local reason
     for attempt = 1, 3 do
+        local host = os.clock() >= googleRetryAt[1] and 1 or 2
+        if os.clock() < googleRetryAt[host] then
+            nextRequestAt = math.min(googleRetryAt[1], googleRetryAt[2])
+            return nil, reason or "HTTP 429", true
+        end
         nextRequestAt = os.clock() + REQUEST_INTERVAL
-        local ok, response = pcall(request, {Url = url, Method = "GET"})
+        local ok, response = pcall(request, {Url = "https://" .. googleHosts[host] .. path, Method = "GET"})
         local status = ok and type(response) == "table" and tonumber(response.StatusCode)
         if status == 200 and type(response.Body) == "string" then
             local decodedOK, decoded = pcall(HttpService.JSONDecode, HttpService, response.Body)
@@ -88,13 +95,17 @@ local function translate(text)
                         if tostring(key):lower() == "retry-after" then retryAfter = tonumber(value); break end
                     end
                 end
-                nextRequestAt = os.clock() + math.min(900, math.max(rateLimitWait, retryAfter or 0))
+                googleRetryAt[host] = os.clock() + math.min(900, math.max(rateLimitWait, retryAfter or 0))
                 rateLimitWait = math.min(rateLimitWait * 2, 600)
-                return nil, reason, true
+                if host == 2 then
+                    nextRequestAt = math.min(googleRetryAt[1], googleRetryAt[2])
+                    return nil, reason, true
+                end
+                -- The web host uses the same Google translation response format.
             end
             if status and status >= 400 and status < 500 and status ~= 429 then break end
         end
-        if attempt < 3 then task.wait(attempt * 2) end
+        if status ~= 429 and attempt < 3 then task.wait(attempt * 2) end
     end
     return nil, reason
 end
