@@ -436,6 +436,9 @@ local lastWarning = -math.huge
 local LocalPlayer = Players.LocalPlayer
 local CHECK_INTERVAL = 0.1
 local lastCheck = 0
+local nextRequestAt = 0
+local rateLimitWait = 60
+local REQUEST_INTERVAL = 2
 
 -- Standard Roblox Chat Colors
 local NAME_COLORS = {
@@ -468,9 +471,11 @@ end
 local function translate(text)
     if cache[text] then return cache[text] end
     if type(request) ~= "function" then return nil, "request() unavailable" end
+    if os.clock() < nextRequestAt then return nil, "waiting for translator", true end
     local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=" .. HttpService:UrlEncode(text)
     local reason
     for attempt = 1, 3 do
+        nextRequestAt = os.clock() + REQUEST_INTERVAL
         local ok, response = pcall(request, {Url = url, Method = "GET"})
         local status = ok and type(response) == "table" and tonumber(response.StatusCode)
         if status == 200 and type(response.Body) == "string" then
@@ -484,6 +489,7 @@ local function translate(text)
             end
             local result = table.concat(parts)
             if result ~= "" then
+                rateLimitWait = 60
                 cache[text] = result
                 cacheOrder[#cacheOrder + 1] = text
                 if #cacheOrder > 128 then cache[table.remove(cacheOrder, 1)] = nil end
@@ -492,6 +498,17 @@ local function translate(text)
             reason = "invalid translation response"
         else
             reason = status and ("HTTP " .. status) or "request failed"
+            if status == 429 then
+                local retryAfter
+                if type(response.Headers) == "table" then
+                    for key, value in pairs(response.Headers) do
+                        if tostring(key):lower() == "retry-after" then retryAfter = tonumber(value); break end
+                    end
+                end
+                nextRequestAt = os.clock() + math.min(900, math.max(rateLimitWait, retryAfter or 0))
+                rateLimitWait = math.min(rateLimitWait * 2, 600)
+                return nil, reason, true
+            end
             if status and status >= 400 and status < 500 and status ~= 429 then break end
         end
         if attempt < 3 then task.wait(attempt * 2) end
@@ -535,21 +552,21 @@ function Aura.Init(State)
     end
 
     local function processQueue()
-        if working then return end
+        if working or os.clock() < nextRequestAt then return end
         working = true
         task.spawn(function()
-            while #queue > 0 do
+            while #queue > 0 and os.clock() >= nextRequestAt do
                 local entry = table.remove(queue, 1)
                 local player = entry.Player
                 if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
-                    local translated, reason = translate(entry.Text)
+                    local translated, reason, deferred = translate(entry.Text)
                     if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
                         if translated and translated:lower() ~= entry.Text:lower() then
                             display(entry, "(" .. translated .. ")")
                         end
                         entry.Done = translated ~= nil
-                        entry.RetryAt = os.clock() + 15
-                        if not translated and os.clock() - lastWarning >= 30 then
+                        entry.RetryAt = deferred and nextRequestAt or os.clock() + 15
+                        if not translated and not (reason == "waiting for translator") and os.clock() - lastWarning >= 30 then
                             lastWarning = os.clock()
                             warn("Message Aura translation failed: " .. tostring(reason) .. "; retrying later")
                         end
@@ -558,6 +575,8 @@ function Aura.Init(State)
                 end
                 entry.Queued = false
             end
+            for _, entry in ipairs(queue) do entry.Queued = false end
+            queue = {}
             working = false
         end)
     end
@@ -588,7 +607,7 @@ function Aura.Init(State)
                         local head = char:FindFirstChild("Head")
                         if head then Chat:Chat(head, text, Enum.ChatColor.White) end
                     end
-                    if not entry.Done and not entry.Queued and now - entry.ChangedAt >= 0.5 and now >= entry.RetryAt then
+                    if not entry.Done and not entry.Queued and now - entry.ChangedAt >= 0.5 and now >= entry.RetryAt and now >= nextRequestAt then
                         entry.Queued = true
                         queue[#queue + 1] = entry
                     end
@@ -606,6 +625,7 @@ function Aura.Init(State)
 end
 
 return Aura
+
 ]=],
     ["AutoBurst"] = [=[
 local AutoBurst = {}
