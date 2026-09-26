@@ -430,17 +430,14 @@ local PDI = "\u{2069}"
 local messages = {}
 local cache = {}
 local cacheOrder = {}
-local queue = {}
 local working = false
-local lastWarning = -math.huge
+local warned = false
 local LocalPlayer = Players.LocalPlayer
 local CHECK_INTERVAL = 0.1
 local lastCheck = 0
 local nextRequestAt = 0
 local rateLimitWait = 60
-local REQUEST_INTERVAL = 2
-local googleHosts = {"translate.googleapis.com", "translate.google.com"}
-local googleRetryAt = {0, 0}
+local REQUEST_INTERVAL = 3
 
 -- Standard Roblox Chat Colors
 local NAME_COLORS = {
@@ -471,60 +468,54 @@ local function GetNameValue(pName)
 end
 
 local function translate(text)
-    if cache[text] then return cache[text] end
-    if type(request) ~= "function" then return nil, "request() unavailable" end
-    if os.clock() < nextRequestAt then return nil, "waiting for translator", true end
-    local path = "/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=" .. HttpService:UrlEncode(text)
-    local reason
-    for attempt = 1, 3 do
-        local host = os.clock() >= googleRetryAt[1] and 1 or 2
-        if os.clock() < googleRetryAt[host] then
-            nextRequestAt = math.min(googleRetryAt[1], googleRetryAt[2])
-            return nil, reason or "HTTP 429", true
-        end
-        nextRequestAt = os.clock() + REQUEST_INTERVAL
-        local ok, response = pcall(request, {Url = "https://" .. googleHosts[host] .. path, Method = "GET"})
-        local status = ok and type(response) == "table" and tonumber(response.StatusCode)
-        if status == 200 and type(response.Body) == "string" then
-            local decodedOK, decoded = pcall(HttpService.JSONDecode, HttpService, response.Body)
-            local segments = decodedOK and type(decoded) == "table" and decoded[1]
-            local parts = {}
-            if type(segments) == "table" then
-                for _, segment in ipairs(segments) do
-                    if type(segment) == "table" and type(segment[1]) == "string" then parts[#parts + 1] = segment[1] end
-                end
-            end
-            local result = table.concat(parts)
-            if result ~= "" then
-                rateLimitWait = 60
-                cache[text] = result
-                cacheOrder[#cacheOrder + 1] = text
-                if #cacheOrder > 128 then cache[table.remove(cacheOrder, 1)] = nil end
-                return result
-            end
-            reason = "invalid translation response"
-        else
-            reason = status and ("HTTP " .. status) or "request failed"
-            if status == 429 then
-                local retryAfter
-                if type(response.Headers) == "table" then
-                    for key, value in pairs(response.Headers) do
-                        if tostring(key):lower() == "retry-after" then retryAfter = tonumber(value); break end
-                    end
-                end
-                googleRetryAt[host] = os.clock() + math.min(900, math.max(rateLimitWait, retryAfter or 0))
-                rateLimitWait = math.min(rateLimitWait * 2, 600)
-                if host == 2 then
-                    nextRequestAt = math.min(googleRetryAt[1], googleRetryAt[2])
-                    return nil, reason, true
-                end
-                -- The web host uses the same Google translation response format.
-            end
-            if status and status >= 400 and status < 500 and status ~= 429 then break end
-        end
-        if status ~= 429 and attempt < 3 then task.wait(attempt * 2) end
+    if type(request) ~= "function" then
+        nextRequestAt = os.clock() + 15
+        return nil, "request() unavailable"
     end
-    return nil, reason
+
+    local url = "https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=en&dt=t&q=" .. HttpService:UrlEncode(text)
+    local ok, response = pcall(request, {Url = url, Method = "GET"})
+    nextRequestAt = os.clock() + REQUEST_INTERVAL
+    local status = ok and type(response) == "table" and tonumber(response.StatusCode)
+
+    if status == 429 then
+        local retryAfter = 0
+        for key, value in pairs(type(response.Headers) == "table" and response.Headers or {}) do
+            if tostring(key):lower() == "retry-after" then retryAfter = tonumber(value) or 0 end
+        end
+        nextRequestAt = os.clock() + math.max(rateLimitWait, retryAfter)
+        rateLimitWait = math.min(rateLimitWait * 2, 900)
+        return nil, "Google translation is rate-limited; original messages still appear"
+    end
+
+    if status ~= 200 or type(response.Body) ~= "string" then
+        nextRequestAt = os.clock() + 15
+        return nil, status and ("HTTP " .. status) or "request failed"
+    end
+
+    local decodedOK, decoded = pcall(HttpService.JSONDecode, HttpService, response.Body)
+    local segments = decodedOK and type(decoded) == "table" and decoded[1]
+    local parts = {}
+    if type(segments) == "table" then
+        for _, segment in ipairs(segments) do
+            if type(segment) == "table" and type(segment[1]) == "string" then
+                parts[#parts + 1] = segment[1]
+            end
+        end
+    end
+
+    local result = table.concat(parts)
+    if result == "" then
+        nextRequestAt = os.clock() + 15
+        return nil, "invalid translation response"
+    end
+
+    rateLimitWait = 60
+    warned = false
+    cache[text] = result
+    cacheOrder[#cacheOrder + 1] = text
+    if #cacheOrder > 128 then cache[table.remove(cacheOrder, 1)] = nil end
+    return result
 end
 
 local function ComputeNameColor(pName)
@@ -562,32 +553,24 @@ function Aura.Init(State)
             LRI, ComputeNameColor(entry.Player.Name):ToHex(), escape(entry.Player.Name), direction, escape(text), PDI, PDI))
     end
 
-    local function processQueue()
-        if working or os.clock() < nextRequestAt then return end
+    local function showTranslation(entry, translated)
+        if not State.Toggles.MsgAura.Value or messages[entry.Player] ~= entry or entry.Player.Character ~= entry.Character then return end
+        entry.Done = true
+        if translated:lower() ~= entry.Text:lower() then
+            display(entry, "(" .. translated .. ")")
+        end
+    end
+
+    local function translateEntry(entry)
         working = true
         task.spawn(function()
-            while #queue > 0 and os.clock() >= nextRequestAt do
-                local entry = table.remove(queue, 1)
-                local player = entry.Player
-                if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
-                    local translated, reason, deferred = translate(entry.Text)
-                    if State.Toggles.MsgAura.Value and messages[player] == entry and player.Character == entry.Character then
-                        if translated and translated:lower() ~= entry.Text:lower() then
-                            display(entry, "(" .. translated .. ")")
-                        end
-                        entry.Done = translated ~= nil
-                        entry.RetryAt = deferred and nextRequestAt or os.clock() + 15
-                        if not translated and not (reason == "waiting for translator") and os.clock() - lastWarning >= 30 then
-                            lastWarning = os.clock()
-                            warn("Message Aura translation failed: " .. tostring(reason) .. "; retrying later")
-                        end
-                    end
-                    task.wait(0.3)
-                end
-                entry.Queued = false
+            local translated, reason = translate(entry.Text)
+            if translated then
+                showTranslation(entry, translated)
+            elseif not warned and State.Toggles.MsgAura.Value and messages[entry.Player] == entry then
+                warned = true
+                warn("Message Aura: " .. reason)
             end
-            for _, entry in ipairs(queue) do entry.Queued = false end
-            queue = {}
             working = false
         end)
     end
@@ -612,30 +595,32 @@ function Aura.Init(State)
                 else
                     local entry = messages[player]
                     if not entry or entry.Text ~= text or entry.Character ~= char then
-                        entry = {Player = player, Character = char, Text = text, ChangedAt = now, RetryAt = 0}
+                        entry = {Player = player, Character = char, Text = text, ChangedAt = now}
                         messages[player] = entry
                         display(entry, text)
                         local head = char:FindFirstChild("Head")
                         if head then Chat:Chat(head, text, Enum.ChatColor.White) end
                     end
-                    if not entry.Done and not entry.Queued and now - entry.ChangedAt >= 0.5 and now >= entry.RetryAt and now >= nextRequestAt then
-                        entry.Queued = true
-                        queue[#queue + 1] = entry
+                    if not entry.Done and now - entry.ChangedAt >= 0.5 then
+                        if cache[text] then
+                            showTranslation(entry, cache[text])
+                        elseif not working and now >= nextRequestAt then
+                            translateEntry(entry)
+                        end
                     end
                 end
             end
         end
-        if #queue > 0 then processQueue() end
     end)
     table.insert(State.Connections, conn)
     table.insert(State.Connections, Players.PlayerRemoving:Connect(function(player) messages[player] = nil end))
     table.insert(State.Connections, State.Toggles.MsgAura:GetPropertyChangedSignal("Value"):Connect(function()
         messages = {}
-        queue = {}
     end))
 end
 
 return Aura
+
 
 ]=],
     ["AutoBurst"] = [=[
