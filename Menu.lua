@@ -23,6 +23,7 @@ function Menu.new(Title, ToggleKey)
     local Position, Width, Height
     local Focus, Capture, Drag, Slider, ScrollDrag, Dropdown, Hovered
     local Status = "Loading modules..."
+    local VersionLabel, UpdateStatus = "", ""
     local Hits, Layer = {}, 0
     local Pools = {Square = {}, Text = {}, Circle = {}}
     local Used = {Square = 0, Text = 0, Circle = 0}
@@ -343,12 +344,13 @@ function Menu.new(Title, ToggleKey)
                 Box(Left, Y + 68, Right - Left, 1, Colors.Border)
                 Box(Left, Y + Height - 38, Right - Left, 1, Colors.Border)
                 Text(Title, X + 18, Y + 15, Colors.Text, 23, Width - 72)
-                Text("JJS  /  Press " .. ToggleKey.Name .. " to hide", X + 19, Y + 45, Colors.Muted, 12, Width - 50)
+                Text("JJS " .. VersionLabel .. " / Press " .. ToggleKey.Name .. " to hide", X + 19, Y + 45, Colors.Muted, 12, Width - 50)
                 Circle(X + Width - 25, Y + 29, 14, Colors.Row)
                 Text("-", X + Width - 29, Y + 15, Colors.Muted, 21)
                 Hit(X, Y, Width - 44, 66, "Drag")
                 Hit(X + Width - 43, Y + 6, 36, 42, "Hide")
-                Text(Status, Left, Y + Height - 26, Colors.Muted, 11, Right - Left)
+                Text(Status, Left, Y + Height - 32, Colors.Muted, 11, Right - Left)
+                Text(UpdateStatus, Left, Y + Height - 18, Colors.Muted, 10, Right - Left)
             end
         end
         for Kind, Pool in pairs(Pools) do
@@ -367,6 +369,11 @@ function Menu.new(Title, ToggleKey)
 
     function Window:SetStatus(Value)
         Status = Value
+        Render()
+    end
+
+    function Window:SetVersion(Label, Updated)
+        VersionLabel, UpdateStatus = Label, Updated
         Render()
     end
 

@@ -13,45 +13,26 @@ local DB = {
     [123167492985370] = {delay = 0.6, move = 2}
 }
 
-local function doMove(moveNumber)
-    local PlayerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    local character = LocalPlayer.Character
-    
-    if not (PlayerGui and PlayerGui.Parent and character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0) then 
-        return 
-    end
+local function doMove(character, moveNumber, State)
+    if not State.Toggles.BlackFlash.Value or LocalPlayer.Character ~= character then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    local moveset = character:FindFirstChild("Moveset")
+    if not humanoid or humanoid.Health <= 0 or not moveset then return end
 
-    local main = PlayerGui:FindFirstChild("Main")
-    local controls = main and main:FindFirstChild("Controls")
-    local movesetGui = controls and controls:FindFirstChild("Moveset")
-    if not movesetGui then return end
+    local knit = ReplicatedStorage:FindFirstChild("Knit")
+    knit = knit and knit:FindFirstChild("Knit")
+    local services = knit and knit:FindFirstChild("Services")
+    if not services then return end
 
-    local frames = {}
-    for _, v in pairs(movesetGui:GetChildren()) do 
-        if v:IsA("Frame") then 
-            table.insert(frames, v) 
-        end 
-    end
-    
-    table.sort(frames, function(a, b) 
-        return (a.LayoutOrder or 0) < (b.LayoutOrder or 0) 
-    end)
-
-    local target = frames[moveNumber]
-    if target then
-        local knit = ReplicatedStorage:WaitForChild("Knit", 5)
-        if not knit then return end
-        
-        local serviceName = target.Name:gsub(" ", "") .. "Service"
-        local service = knit:WaitForChild("Knit"):WaitForChild("Services"):FindFirstChild(serviceName)
-        
-        if service then 
-            local activatedRemote = service:WaitForChild("RE"):WaitForChild("Activated")
-            local moveObject = character.Moveset:FindFirstChild(target.Name)
-            
-            if moveObject then
-                activatedRemote:FireServer(moveObject)
-            end
+    for _, move in ipairs(moveset:GetChildren()) do
+        if move:GetAttribute("Key") == moveNumber then
+            local serviceName = move:GetAttribute("Service") or move.Name:gsub(" ", "") .. "Service"
+            if type(serviceName) ~= "string" then return end
+            local service = services:FindFirstChild(serviceName) or services:FindFirstChild(serviceName .. "Service")
+            local re = service and service:FindFirstChild("RE")
+            local activated = re and re:FindFirstChild("Activated")
+            if activated then activated:FireServer(move) end
+            return
         end
     end
 end
@@ -61,7 +42,7 @@ function BlackFlash.Init(State)
         local humanoid = char:WaitForChild("Humanoid", 5)
         local animator = humanoid and humanoid:WaitForChild("Animator", 5)
         
-        if not animator then return end
+        if not animator or LocalPlayer.Character ~= char then return end
 
         local conn = animator.AnimationPlayed:Connect(function(track)
             if not State.Toggles.BlackFlash.Value then return end
@@ -71,7 +52,7 @@ function BlackFlash.Init(State)
             
             if cfg then 
                 task.delay(cfg.delay, function() 
-                    doMove(cfg.move) 
+                    doMove(char, cfg.move, State) 
                 end) 
             end
         end)
@@ -88,3 +69,4 @@ function BlackFlash.Init(State)
 end
 
 return BlackFlash
+

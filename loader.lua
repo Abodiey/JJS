@@ -1,4 +1,4 @@
-local Url = "https://raw.githubusercontent.com/Abodiey/JJS/refs/heads/main/bundle.lua"
+local Url = "https://raw.githubusercontent.com/Abodiey/JJS/refs/heads/main/bundle.lua?t=" .. os.time()
 local MaxRetries = 3
 local Delay = 1
 local Response = nil

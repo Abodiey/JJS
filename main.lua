@@ -167,6 +167,10 @@ end
 while not Players.LocalPlayer or not workspace.CurrentCamera do task.wait() end
 local Window = Menu.new("CATSTAR", Enum.KeyCode.K)
 getgenv().CatstarMenu = Window
+local Version = Load("Version")
+if type(Version) == "table" and type(Version.Init) == "function" then
+    Version.Init(Window, Build)
+end
 
 task.spawn(function()
     Load("fixes")
