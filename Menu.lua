@@ -390,7 +390,7 @@ function Menu.new(Title, ToggleKey)
 
     function Window:Refresh() Render() end
 
-    function Window:Add(Kind, Options)
+    function Window:Add(Kind, Options, After)
         local Item = {Kind = Kind, Args = Options, Title = Options.Title, Enabled = true, Press = 0,
             Height = Kind == "Section" and 56 or ((Kind == "Slider" or Kind == "Input") and 70 or 50)}
         Item.Value = Kind == "Slider" and Options.Value.Default or Options.Value
@@ -402,7 +402,9 @@ function Menu.new(Title, ToggleKey)
         function Item:SetEnabled(Value) self.Enabled = Value; Render() end
         function Item:Set(Value) self.Value = Value; if self.Kind == "Toggle" then Animate(self, "Switch", Value and 1 or 0, 0.2) else Render() end end
         function Item:SetValue(Value) self:Set(Value) end
-        self.Items[#self.Items + 1] = Item
+        local Index = After and table.find(self.Items, After)
+        if Index then table.insert(self.Items, Index + 1, Item)
+        else self.Items[#self.Items + 1] = Item end
         if Options.Binding then
             Connect(Options.Binding.Changed, function()
                 Item.Value = Options.Binding.Value

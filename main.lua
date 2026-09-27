@@ -293,6 +293,28 @@ local UiLayout = {
     {Type = "Toggle",   Module = "RouletteAutoCharacter", Args = {Title = "Auto Character", Binding = CatstarState.Toggles.RouletteAutoCharacter, Value = CatstarState.Toggles.RouletteAutoCharacter.Value, Callback = function(V) CatstarState.Toggles.RouletteAutoCharacter.Value = V end}},
 }
 
+local function AddBlackFlashOptions(Mod, Parent)
+    local Children, After = {}, Parent
+    for _, Option in ipairs(Mod.Options) do
+        local Key = "BlackFlash" .. Option.Id
+        local DelayKey = "BlackFlashDelay" .. Option.Id
+        VariableDefaults[DelayKey] = Option.Delay
+        Ranges[DelayKey] = {0, 1}
+        local Toggle = CatstarState.Toggles[Key]
+        local Delay = CatstarState.Variables[DelayKey]
+        After = Window:Add("Toggle", {Title = Option.Name, Parent = CatstarState.Toggles.BlackFlash,
+            Binding = Toggle, Value = Toggle.Value, Callback = function(V) Toggle.Value = V end}, After)
+        After:SetEnabled(false)
+        Children[#Children + 1] = After
+        After = Window:Add("Slider", {Title = Option.Name .. " delay (s)", Parent = CatstarState.Toggles.BlackFlash,
+            Binding = Delay, Step = 0.01, Value = {Min = 0, Max = 1, Default = Delay.Value},
+            Callback = function(V) Delay.Value = V end}, After)
+        After:SetEnabled(false)
+        Children[#Children + 1] = After
+    end
+    return Children
+end
+
 local InitializedModules = {}
 local Pending = 0
 local Failures = {}
@@ -305,12 +327,14 @@ for _, Element in ipairs(UiLayout) do
         task.spawn(function()
             while not Modules[TargetModule] and not ModuleFailed[TargetModule] do task.wait() end
             local Mod = Modules[TargetModule]
+            local Children = {}
             local RunName = Element.InitName or "Init"
             if Mod and RunName ~= "None" then
                 if not InitializedModules[TargetModule] then
                     InitializedModules[TargetModule] = "Loading"
                     local Success, Error = xpcall(function()
                         assert(type(Mod) == "table" and type(Mod[RunName]) == "function", "Missing " .. RunName)
+                        if TargetModule == "BlackFlash" then Children = AddBlackFlashOptions(Mod, Component) end
                         if Element.InitArg == "Component" then Mod[RunName](Component, CatstarState)
                         else Mod[RunName](CatstarState) end
                         if TargetModule == "RouletteAutoCharacter" then
@@ -335,6 +359,7 @@ for _, Element in ipairs(UiLayout) do
             end
             local Ready = Mod ~= nil and InitializedModules[TargetModule] ~= "Failed"
             Component:SetEnabled(Ready)
+            for _, Child in ipairs(Children) do Child:SetEnabled(Ready) end
             if not Ready then Failures[TargetModule] = true end
             Pending = Pending - 1
         end)

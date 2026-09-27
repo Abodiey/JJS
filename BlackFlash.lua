@@ -3,15 +3,17 @@ local Players = cloneref(game:GetService("Players"))
 local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
 local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait() or Players.LocalPlayer
 
-local DB = {
-    [100962226150441] = {delay = 0.18, move = 3},
-    [95852624447551] = {delay = 0.18, move = 3},
-    [74145636023952] = {delay = 0.18, move = 3},
-    [72475960800126] = {delay = 0.20, move = 3},
-    [100081544058065] = {delay = 0.3, move = 2}, -- Todo's 3+R+[2]
-    [136536827155962] = {delay = 0.3, move = 2}, -- Todo's 3+R+2+[2]
-    [123167492985370] = {delay = 0.6, move = 2}
+BlackFlash.Options = {
+    {Id = "100962226150441", Name = "Move 3 (100962226150441)", Delay = 0.18, Move = 3},
+    {Id = "95852624447551", Name = "Move 3 (95852624447551)", Delay = 0.18, Move = 3},
+    {Id = "74145636023952", Name = "Move 3 (74145636023952)", Delay = 0.18, Move = 3},
+    {Id = "72475960800126", Name = "Move 3 (72475960800126)", Delay = 0.20, Move = 3},
+    {Id = "100081544058065", Name = "Todo: 3 + R + 2", Delay = 0.3, Move = 2},
+    {Id = "136536827155962", Name = "Todo: 3 + R + 2 + 2", Delay = 0.3, Move = 2},
+    {Id = "123167492985370", Name = "Move 2 (123167492985370)", Delay = 0.6, Move = 2},
 }
+local DB = {}
+for _, Option in ipairs(BlackFlash.Options) do DB[tonumber(Option.Id)] = Option end
 
 local function doMove(character, moveNumber, State)
     if not State.Toggles.BlackFlash.Value or LocalPlayer.Character ~= character then return end
@@ -50,10 +52,13 @@ function BlackFlash.Init(State)
             local id = tonumber(track.Animation.AnimationId:match("%d+$"))
             local cfg = DB[id]
             
-            if cfg then 
-                task.delay(cfg.delay, function() 
-                    doMove(char, cfg.move, State) 
-                end) 
+            if cfg and State.Toggles["BlackFlash" .. cfg.Id].Value then
+                local delay = State.Variables["BlackFlashDelay" .. cfg.Id].Value
+                task.delay(delay, function()
+                    if State.Toggles["BlackFlash" .. cfg.Id].Value then
+                        doMove(char, cfg.Move, State)
+                    end
+                end)
             end
         end)
         
