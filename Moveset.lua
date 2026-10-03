@@ -78,28 +78,18 @@ This is what dessert is like!
 You weren't invited.
 Mayhem
 Big Moves
-Directed Poison
-Unrestricted Density
-Foresight
-Jawbreaker
-Bird Strike
-Parthenogenesis]])
+Strong Dismantle
+Kamutoke]])
 local OPMoves = MoveSet([[Idle Transfiguration
-Verdict
 Triple Sentence
-Bird Strike
-Unrestricted Density
 World Slash
 Hollow Purple
 Open
-Great Serpent
 Plasma Wave
 Brothers
-Execution
-Absolute Destruction
-Collapse
-Shining Sea of Growing Branches
-Parthenogenesis]])
+Flash Freezing
+Open FURNACE
+Cleave Rush]])
 local UltColor = Color3.fromRGB(255, 196, 64)
 local OPColor = Color3.fromRGB(255, 64, 80)
 
@@ -371,4 +361,5 @@ function Moveset.Init(State, Helpers)
 end
 
 return Moveset
+
 
