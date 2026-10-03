@@ -8,15 +8,17 @@ function Menu.new(Title, ToggleKey)
     local ScrollAction = "CatstarMenuScroll"
     local Window = {Items = {}, Scroll = 0, Connections = {}, Drawings = {}, Visible = true, Reveal = 1, Destroyed = false}
     local Colors = {
-        Background = Color3.fromRGB(242, 242, 247),
+        Background = Color3.fromRGB(244, 245, 249),
+        Shadow = Color3.fromRGB(184, 188, 198),
+        CardBorder = Color3.fromRGB(226, 228, 235),
         Row = Color3.fromRGB(255, 255, 255),
-        Hover = Color3.fromRGB(246, 249, 255),
+        Hover = Color3.fromRGB(240, 245, 255),
         Pressed = Color3.fromRGB(225, 237, 255),
-        DisabledRow = Color3.fromRGB(218, 218, 224),
-        DisabledText = Color3.fromRGB(117, 117, 125),
+        DisabledRow = Color3.fromRGB(224, 226, 232),
+        DisabledText = Color3.fromRGB(144, 147, 156),
         DisabledControl = Color3.fromRGB(170, 170, 178),
-        Border = Color3.fromRGB(210, 210, 215),
-        Text = Color3.fromRGB(28, 28, 30), Muted = Color3.fromRGB(108, 108, 116),
+        Border = Color3.fromRGB(224, 226, 232),
+        Text = Color3.fromRGB(28, 30, 36), Muted = Color3.fromRGB(112, 117, 128),
         Accent = Color3.fromRGB(0, 122, 255), Green = Color3.fromRGB(52, 199, 89),
         SwitchOff = Color3.fromRGB(209, 209, 214),
     }
@@ -168,8 +170,8 @@ function Menu.new(Title, ToggleKey)
         end
     end
 
-    local function Text(Value, X, Y, Color, Size, MaxWidth)
-        local Object = Paint("Text", {Position = Vector2.new(X, Y), Text = tostring(Value), Color = Color or Colors.Text, Size = Size or 14, Font = 2, Center = false, Outline = false})
+    local function Text(Value, X, Y, Color, Size, MaxWidth, Center)
+        local Object = Paint("Text", {Position = Vector2.new(X, Y), Text = tostring(Value), Color = Color or Colors.Text, Size = Size or 14, Font = 2, Center = Center or false, Outline = false})
         if MaxWidth and Object.TextBounds.X > MaxWidth then
             local Short = tostring(Value)
             while #Short > 0 and Object.TextBounds.X > MaxWidth do
@@ -217,13 +219,13 @@ function Menu.new(Title, ToggleKey)
         if (Window.Visible or Window.Reveal > 0.001) and workspace.CurrentCamera then
             Measure()
             local X, Y = Position.X, Position.Y + (1 - Window.Reveal) * 12
-            Rounded(X + 3, Y + 6, Width, Height, 20, Color3.fromRGB(190, 190, 198))
-            Rounded(X, Y, Width, Height, 20, Colors.Border)
-            Rounded(X + 1, Y + 1, Width - 2, Height - 2, 19, Colors.Background)
+            Rounded(X + 2, Y + 5, Width, Height, 24, Colors.Shadow)
+            Rounded(X, Y, Width, Height, 24, Colors.Border)
+            Rounded(X + 1, Y + 1, Width - 2, Height - 2, 23, Colors.Background)
             Backing.Position = UDim2.fromOffset(X, Y)
             Backing.Size = UDim2.fromOffset(Width, Height)
-            local Left, Right = X + 16, X + Width - 16
-            local Top, Bottom = Y + 76, Y + Height - 42
+            local Left, Right = X + 18, X + Width - 18
+            local Top, Bottom = Y + 94, Y + Height - 58
             if Bottom > Top then
                 local Total = 0
                 for _, Item in ipairs(Window.Items) do Total = Total + ItemHeight(Item) end
@@ -250,7 +252,8 @@ function Menu.new(Title, ToggleKey)
                         local GroupTop = math.max(Top, GroupY + Entry.Height)
                         local GroupBottom = math.min(Bottom, GroupY + Entry.Height + GroupHeight)
                         if GroupBottom > GroupTop then
-                            Rounded(Left, GroupTop, Right - Left - 7, GroupBottom - GroupTop, 13, Colors.Row)
+                            Rounded(Left, GroupTop, Right - Left - 9, GroupBottom - GroupTop, 16, Colors.CardBorder)
+                            Rounded(Left + 1, GroupTop + 1, Right - Left - 11, math.max(0, GroupBottom - GroupTop - 2), 15, Colors.Row)
                         end
                     end
                     GroupY = GroupY + ItemHeight(Entry)
@@ -265,36 +268,39 @@ function Menu.new(Title, ToggleKey)
                         local LabelColor = Available and Colors.Text or Colors.DisabledText
                         local ValueColor = Available and Colors.Accent or Colors.DisabledText
                         if Kind == "Section" then
-                            Text(string.upper(Item.Title), Left + 9, RowY + 19, Colors.Muted, 12, Right - Left - 12)
+                            Text(string.upper(Item.Title), Left + 14, RowY + 21, Colors.Muted, 11, Right - Left - 28)
                         else
-                            local RowColor = Available and (Item.Press > 0 and Blend(Colors.Row, Colors.Pressed, Item.Press) or (Hovered == Item and Colors.Hover or Colors.Row)) or Colors.DisabledRow
+                            local RowColor = Available and Blend(Blend(Colors.Row, Colors.Hover, Item.Hover or 0), Colors.Pressed, Item.Press) or Colors.DisabledRow
                             if RowColor ~= Colors.Row then Rounded(Left + 1, RowY + 1, Right - Left - 9, H - 2, 11, RowColor) end
-                            local Indent = Item.Args.Parent and 28 or 14
+                            local Indent = Item.Args.Parent and 32 or 16
                             if Item.Args.Parent then
-                                Box(Left + 15, RowY + 15, 2, H - 30, Available and Colors.Border or Colors.DisabledControl)
+                                Circle(Left + 21, RowY + H / 2, 2, Available and Colors.Muted or Colors.DisabledControl)
                             end
-                            local Reserve = Kind == "Dropdown" and 235 or ((Kind == "Keybind" or Kind == "Toggle") and 90 or 75)
-                            Text(Item.Title, Left + Indent, RowY + (Kind == "Slider" and 10 or 14), LabelColor, 14, Right - Left - Reserve - Indent)
+                            local Reserve = Kind == "Dropdown" and 235 or ((Kind == "Keybind" or Kind == "Slider") and 112 or 90)
+                            Text(Item.Title, Left + Indent, RowY + ((Kind == "Slider" or Kind == "Input") and 12 or (H - 18) / 2), Kind == "Button" and ValueColor or LabelColor, Item.Args.Parent and 13 or 15, Right - Left - Reserve - Indent)
                             if Kind == "Toggle" then
                                 local TrackColor = Available and Blend(Colors.SwitchOff, Colors.Green, Item.Switch) or Colors.DisabledControl
-                                Rounded(Right - 63, RowY + 11, 44, 25, 12.5, TrackColor)
-                                Circle(Right - 50 + 19 * Item.Switch, RowY + 23.5, 10, Available and Colors.Row or Colors.DisabledRow)
+                                Rounded(Right - 66, RowY + (H - 28) / 2, 46, 28, 14, TrackColor)
+                                Circle(Right - 52 + 18 * Item.Switch, RowY + H / 2 + 1, 11, Available and Colors.DisabledControl or Colors.DisabledRow)
+                                Circle(Right - 52 + 18 * Item.Switch, RowY + H / 2, 11, Available and Colors.Row or Colors.DisabledRow)
                             elseif Kind == "Dropdown" then
-                                Text(Item.Value ~= "" and Item.Value or "None", Right - 219, RowY + 14, ValueColor, 13, 181)
-                                Text(Dropdown == Item and "^" or "v", Right - 31, RowY + 14, Available and Colors.Muted or Colors.DisabledText, 13)
+                                Text(Item.Value ~= "" and Item.Value or "None", Right - 219, RowY + (H - 18) / 2, Available and Colors.Muted or Colors.DisabledText, 13, 177)
+                                Text(Dropdown == Item and "v" or ">", Right - 31, RowY + (H - 18) / 2, ValueColor, 14)
                             elseif Kind == "Button" then
-                                Text(">", Right - 30, RowY + 14, ValueColor, 14)
+                                Text(">", Right - 31, RowY + (H - 18) / 2, ValueColor, 15)
                             elseif Kind == "Keybind" then
-                                Text(Capture == Item and "..." or Item.Value, Right - 83, RowY + 14, ValueColor, 13, 62)
+                                Rounded(Right - 96, RowY + (H - 30) / 2, 76, 30, 9, Available and Colors.Hover or Colors.DisabledRow)
+                                Text(Capture == Item and "..." or Item.Value, Right - 58, RowY + (H - 18) / 2, ValueColor, 13, 60, true)
                             elseif Kind == "Slider" then
-                                Text(Item.Args.Step and Item.Args.Step < 1 and string.format("%.2f", Item.Value) or Item.Value, Right - 66, RowY + 10, ValueColor, 13, 49)
+                                Rounded(Right - 96, RowY + 7, 76, 28, 9, Available and Colors.Hover or Colors.DisabledRow)
+                                Text(Item.Args.Step and Item.Args.Step < 1 and string.format("%.2f", Item.Value) or Item.Value, Right - 58, RowY + 12, ValueColor, 13, 60, true)
                                 local Range = Item.Args.Value
-                                local TrackX, TrackW = Left + 14, Right - Left - 35
+                                local TrackX, TrackW = Left + Indent, Right - Left - Indent - 24
                                 local Fraction = (Item.Value - Range.Min) / (Range.Max - Range.Min)
-                                Box(TrackX, RowY + 43, TrackW, 4, Available and Colors.SwitchOff or Colors.DisabledControl)
-                                Box(TrackX, RowY + 43, TrackW * Fraction, 4, Available and Colors.Accent or Colors.DisabledControl)
-                                Circle(TrackX + TrackW * Fraction, RowY + 45, 9, Available and Colors.Accent or Colors.DisabledControl)
-                                Circle(TrackX + TrackW * Fraction, RowY + 45, 6, Colors.Row)
+                                Rounded(TrackX, RowY + 49, TrackW, 4, 2, Available and Colors.SwitchOff or Colors.DisabledControl)
+                                if Fraction > 0 then Rounded(TrackX, RowY + 49, TrackW * Fraction, 4, 2, Available and Colors.Accent or Colors.DisabledControl) end
+                                Circle(TrackX + TrackW * Fraction, RowY + 51, 11, Available and Colors.Accent or Colors.DisabledControl)
+                                Circle(TrackX + TrackW * Fraction, RowY + 51, 9, Available and Colors.Row or Colors.DisabledRow)
                                 Item.TrackX, Item.TrackW = TrackX, TrackW
                             elseif Kind == "Input" then
                                 local Value = Focus == Item and Item.Edit .. "|" or Item.Value
@@ -335,22 +341,31 @@ function Menu.new(Title, ToggleKey)
                     local Thumb = math.max(24, Space * Space / Total)
                     Box(Right - 3, Top, 2, Space, Colors.Border)
                     local ThumbTop = Top + (Space - Thumb) * Window.Scroll / Window.MaxScroll
-                    Box(Right - 4, ThumbTop, 4, Thumb, Colors.Muted)
+                    Rounded(Right - 4, ThumbTop, 3, Thumb, 1.5, Colors.DisabledControl)
                     Hit(Right - 9, Top, 12, Space, "ScrollBar", {Top = Top, Space = Space, Thumb = Thumb, ThumbTop = ThumbTop})
                 end
                 -- Drawing has no clipping, so cover the parts of rows outside the scroll area.
                 Box(Left, Y + 1, Right - Left, Top - Y - 1, Colors.Background)
                 Box(Left, Bottom, Right - Left, Y + Height - 1 - Bottom, Colors.Background)
-                Box(Left, Y + 68, Right - Left, 1, Colors.Border)
-                Box(Left, Y + Height - 38, Right - Left, 1, Colors.Border)
-                Text(Title, X + 18, Y + 15, Colors.Text, 23, Width - 72)
-                Text("JJS " .. VersionLabel .. " / Press " .. ToggleKey.Name .. " to hide", X + 19, Y + 45, Colors.Muted, 12, Width - 50)
-                Circle(X + Width - 25, Y + 29, 14, Colors.Row)
-                Text("-", X + Width - 29, Y + 15, Colors.Muted, 21)
-                Hit(X, Y, Width - 44, 66, "Drag")
-                Hit(X + Width - 43, Y + 6, 36, 42, "Hide")
-                Text(Status, Left, Y + Height - 32, Colors.Muted, 11, Right - Left)
-                Text(UpdateStatus, Left, Y + Height - 18, Colors.Muted, 10, Right - Left)
+                Box(Left, Y + 84, Right - Left, 1, Colors.Border)
+                Box(Left, Y + Height - 54, Right - Left, 1, Colors.Border)
+                local BadgeWidth = math.min(154, math.max(84, Width * 0.3))
+                local BadgeX = X + Width - 62 - BadgeWidth
+                Text(Title, X + 24, Y + 18, Colors.Text, 24, BadgeX - X - 38)
+                Text("JJS / " .. ToggleKey.Name .. " to hide", X + 25, Y + 52, Colors.Muted, 12, Width - 80)
+                if VersionLabel ~= "" then
+                    Rounded(BadgeX, Y + 20, BadgeWidth, 26, 9, Colors.Row)
+                    Text(VersionLabel, BadgeX + BadgeWidth / 2, Y + 26, Colors.Muted, 11, BadgeWidth - 14, true)
+                end
+                Circle(X + Width - 30, Y + 33, 15, Colors.Row)
+                Box(X + Width - 35, Y + 32, 10, 2, Colors.Muted)
+                Hit(X, Y, Width - 50, 84, "Drag")
+                Hit(X + Width - 48, Y + 12, 36, 42, "Hide")
+                local StatusColor = Status == "Ready" and Colors.Green or (Status:find("Failed", 1, true) and Color3.fromRGB(255, 69, 58) or Colors.Accent)
+                Circle(Left + 5, Y + Height - 37, 3, StatusColor)
+                Text(Status, Left + 17, Y + Height - 44, Colors.Muted, 12, Right - Left - 20)
+                Text(UpdateStatus, Left, Y + Height - 24, Colors.Muted, 11, Right - Left)
+
             end
         end
         for Kind, Pool in pairs(Pools) do
@@ -359,6 +374,7 @@ function Menu.new(Title, ToggleKey)
     end
 
     function Window:SetVisible(Value)
+        if Hovered then Hovered.Hover = 0 end
         self.Visible = Value
         Gui.Enabled = Value
         FinishInput(true)
@@ -392,7 +408,7 @@ function Menu.new(Title, ToggleKey)
 
     function Window:Add(Kind, Options, After)
         local Item = {Kind = Kind, Args = Options, Title = Options.Title, Enabled = true, Press = 0,
-            Height = Kind == "Section" and 56 or ((Kind == "Slider" or Kind == "Input") and 70 or 50)}
+            Height = Kind == "Section" and 52 or ((Kind == "Slider" or Kind == "Input") and 74 or 54)}
         Item.Value = Kind == "Slider" and Options.Value.Default or Options.Value
         Item.Switch = Kind == "Toggle" and (Item.Value and 1 or 0) or 0
         Item.Expanded = 0
@@ -515,7 +531,12 @@ function Menu.new(Title, ToggleKey)
                 for Index = #Hits, 1, -1 do
                     if Inside(Point, Hits[Index]) and Hits[Index].Item and Hits[Index].Item.Kind then NextHover = Hits[Index].Item; break end
                 end
-                if Hovered ~= NextHover then Hovered = NextHover; Render() end
+                if Hovered ~= NextHover then
+                    local Previous = Hovered
+                    Hovered = NextHover
+                    if Previous then Animate(Previous, "Hover", 0, 0.14) end
+                    if NextHover then Animate(NextHover, "Hover", 1, 0.14) end
+                end
             end
 
         end
@@ -541,6 +562,7 @@ function Menu.new(Title, ToggleKey)
         if Event.UserInputType == Enum.UserInputType.MouseButton1 then Drag, Slider, ScrollDrag = nil, nil, nil end
     end)
     Connect(Input.WindowFocusReleased, function()
+        if Hovered then Hovered.Hover = 0 end
         Drag, Slider, Capture, ScrollDrag, Hovered = nil, nil, nil, nil, nil
         SetDropdown(nil)
         FinishInput(true)
