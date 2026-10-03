@@ -1,5 +1,108 @@
 local Moveset = {}
 
+local function MoveKey(Name)
+    return Name:lower():gsub("[%s%p]", "")
+end
+
+local function MoveSet(Names)
+    local Set = {}
+    for Name in Names:gmatch("[^\r\n]+") do Set[MoveKey(Name)] = true end
+    return Set
+end
+
+local UltMoves = MoveSet([[Lapse Blue MAX
+Reversal Red MAX
+Hollow Purple
+Infinite Void
+Dismantle
+Open
+Rush
+Malevolent Shrine
+Lucky Volley
+Lucky Rushdown
+Overwhelming Luck
+Energy Surge
+Max Elephant
+Great Serpent
+Shadow Swarm
+Mahoraga
+Divine Pummel
+Ground Pitch
+Earthquake
+Takedown
+Adaptation
+World Slash
+Idle Transfiguration
+Body Disfigure
+Spike Wrath
+Embodiment of Self Perfection
+Widespread Strikes
+Face Blitz
+Crushing Rushdown
+Head Splitter
+Slicing Exorcism
+Wing King
+Blood Rain
+Plasma Wave
+Idol's Debut
+Climax Jumping
+Dreams
+Brothers
+Execution
+Final Judgement
+Verdict
+Triple Sentence
+Elbow Rush
+Copy
+Energy Ripple
+Authentic Mutual Love
+Miracle Cannon
+Pigeon Viola
+Absolute Destruction
+Technique Charge
+Top Speed
+Flash Freezing
+Tendril Grab
+Time Cell Moon Palace
+Ratio Breaker
+Sharpen
+Interrogate
+Collapse
+Root Rampage
+Flower Field
+Cursed Buds
+Shining Sea of Growing Branches
+What are you after?
+I had no idea...
+This is what dessert is like!
+You weren't invited.
+Mayhem
+Big Moves
+Directed Poison
+Unrestricted Density
+Foresight
+Jawbreaker
+Bird Strike
+Parthenogenesis]])
+local OPMoves = MoveSet([[Idle Transfiguration
+Verdict
+Triple Sentence
+Bird Strike
+Unrestricted Density
+World Slash
+Hollow Purple
+Open
+Great Serpent
+Plasma Wave
+Brothers
+Execution
+Absolute Destruction
+Collapse
+Shining Sea of Growing Branches
+Parthenogenesis]])
+local UltColor = Color3.fromRGB(255, 196, 64)
+local OPColor = Color3.fromRGB(255, 64, 80)
+
 function Moveset.Init(State, Helpers)
     local toggleObject = State.Toggles.Moveset
     local m_floor = Helpers.m_floor
@@ -13,6 +116,25 @@ function Moveset.Init(State, Helpers)
     local COLOR_BLACK = Helpers.COLOR_BLACK
     local COLOR_SEAL_RED = Helpers.COLOR_SEAL_RED
     local COLOR_SEAL_GREEN = Helpers.COLOR_SEAL_GREEN
+
+    local function UpdateOutline(Item)
+        local Name = Item.Data.Name
+        local MoveName = Item.MoveRef and Item.MoveRef.Name or ""
+        if Item.OutlineName == Name and Item.OutlineMoveName == MoveName then return end
+        Item.OutlineName, Item.OutlineMoveName = Name, MoveName
+
+        local Key, RawKey = MoveKey(Name), MoveKey(MoveName)
+        if OPMoves[Key] or OPMoves[RawKey] then
+            Item.Outline.Color = OPColor
+            Item.Outline.Thickness = 2
+        elseif UltMoves[Key] or UltMoves[RawKey] then
+            Item.Outline.Color = UltColor
+            Item.Outline.Thickness = 2
+        else
+            Item.Outline.Color = COLOR_BLACK
+            Item.Outline.Thickness = 1
+        end
+    end
 
     local function Hide(c)
         for i = 0, 5 do
@@ -160,6 +282,7 @@ function Moveset.Init(State, Helpers)
                     item.Back.Position = v2_new(currentSlotX, slotY)
                     item.Back.Size = v2_new(slotW, slotHeight)
     
+                    UpdateOutline(item)
                     item.Outline.Visible = true
                     item.Outline.Position = v2_new(currentSlotX, slotY)
                     item.Outline.Size = v2_new(slotW, slotHeight)
@@ -221,6 +344,7 @@ function Moveset.Init(State, Helpers)
                 reggieItem.Back.Visible = true
                 reggieItem.Back.Position = v2_new(reggieX, slotY)
                 reggieItem.Back.Size = v2_new(reggieWidth, slotHeight)
+                UpdateOutline(reggieItem)
                 reggieItem.Outline.Visible = true
                 reggieItem.Outline.Position = v2_new(reggieX, slotY)
                 reggieItem.Outline.Size = v2_new(reggieWidth, slotHeight)
@@ -247,3 +371,4 @@ function Moveset.Init(State, Helpers)
 end
 
 return Moveset
+
