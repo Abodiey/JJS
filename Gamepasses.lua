@@ -1,61 +1,126 @@
 local Gamepasses = {}
 local passIds = {"1151174294", "718699461", "984868818", "857428668", "718947270", "742180133"}
 
--- Helper function to remove already-owned gamepasses from the target table
-local function filterOwnedPasses()
-    if not gamepassesFolder then return end
-    local currentAttributes = gamepassesFolder:GetAttributes()
-    
+local Players = cloneref(game:GetService("Players"))
+local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
+local HttpService = cloneref(game:GetService("HttpService"))
+local plr = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait() or Players.LocalPlayer
+local gamepassesFolder = plr:WaitForChild("Gamepasses", 999)
+local Knit
+local originalMaxPage
+local calibrating = false
+
+if gamepassesFolder then
     for i = #passIds, 1, -1 do
-        local id = passIds[i]
-        if currentAttributes[id] ~= nil then
-            table.remove(passIds, i)
+        if gamepassesFolder:GetAttribute(passIds[i]) ~= nil then table.remove(passIds, i) end
+    end
+end
+
+local function emotes()
+    Knit = Knit or require(ReplicatedStorage:WaitForChild("Knit"):WaitForChild("Knit"))
+    return Knit.GetController("EmoteController"), Knit.GetService("EmoteService")
+end
+
+local function savedEmotes(State)
+    local ok, data = pcall(HttpService.JSONDecode, HttpService, State.Variables.SecondEmotes.Value)
+    return ok and type(data) == "table" and data or {}
+end
+
+local function setPage(EC, State)
+    local gui = plr:FindFirstChild("PlayerGui")
+    local emotesGui = gui and gui:WaitForChild("Emotes", 10)
+    local emote = emotesGui and emotesGui:FindFirstChild("Emote")
+    local menu = emote and emote:FindFirstChild("EmoteMenu")
+    originalMaxPage = originalMaxPage or EC.MaxPage or 1
+    EC.MaxPage = State.Toggles.Gamepasses.Value and math.max(originalMaxPage, 2) or originalMaxPage
+    if not menu then return end
+    local switch = menu:FindFirstChild("Switch")
+    local page = menu:FindFirstChild("Page")
+    if switch then switch.Visible = EC.MaxPage > 1 end
+    if page then page.Visible = EC.MaxPage > 1 end
+    local pages = menu:FindFirstChild("Pages")
+    local label = pages and pages:FindFirstChild("Page")
+    if label then
+        label.Visible = EC.MaxPage ~= 1
+        label.Text = string.format("%d/%d", EC.WheelPage or 1, EC.MaxPage)
+    end
+end
+
+local function restore(State, EC)
+    local saved = savedEmotes(State)
+    if not next(saved) then return end
+    if not State.Toggles.Gamepasses.Value or calibrating then return end
+    for i = 9, 16 do
+        local entry = saved[tostring(i)]
+        if type(entry) == "table" and type(entry[1]) == "string" and type(entry[2]) == "string" and entry[2] ~= "" then
+            EC.EmoteCache[i] = {entry[1], entry[2], nil}
         end
     end
 end
 
-local Players = cloneref(game:GetService("Players"))
-local plr = Players.LocalPlayer
-if not plr then
-    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
-    plr = Players.LocalPlayer
+function Gamepasses.Calibrate(State)
+    if calibrating then return false, "Emote calibration already running" end
+    if not State.Toggles.Gamepasses.Value then return false, "Enable Free Gamepasses first" end
+    calibrating = true
+    local ES
+    local ok, result = pcall(function()
+        local EC
+        EC, ES = emotes()
+        local char = plr.Character
+        if not char then error("Character unavailable", 0) end
+        local saved, count = savedEmotes(State), 0
+        for i = 9, 16 do
+            local info = char:FindFirstChild("Info")
+            if not info then error("Character Info unavailable", 0) end
+            local started = os.clock()
+            while info:FindFirstChild("Emote") and os.clock() - started < 2 do task.wait() end
+            if plr.Character ~= char or not State.Toggles.Gamepasses.Value then error("Calibration cancelled", 0) end
+            if info:FindFirstChild("Emote") then error("Current emote did not end; try again", 0) end
+
+            ES.Emote:Fire(i)
+            started = os.clock()
+            while os.clock() - started < 2 do
+                if plr.Character ~= char or not State.Toggles.Gamepasses.Value then error("Calibration cancelled", 0) end
+                local e = info:FindFirstChild("Emote")
+                if e and e:IsA("Animation") and e.AnimationId ~= "" then
+                    local entry = {e:GetAttribute("EmoteName") or "", e.AnimationId}
+                    EC.EmoteCache[i] = {entry[1], entry[2], nil}
+                    saved[tostring(i)] = entry
+                    count = count + 1
+                    break
+                end
+                task.wait()
+            end
+            ES.EmoteEnd:Fire()
+            task.wait()
+        end
+        if count == 0 then error("No emotes captured; try again", 0) end
+        State.Variables.SecondEmotes.Value = HttpService:JSONEncode(saved)
+        return string.format("Calibrated %d/8 second-page emotes", count)
+    end)
+    if not ok and ES then pcall(function() ES.EmoteEnd:Fire() end) end
+    calibrating = false
+    return ok, tostring(result)
 end
-
-local gamepassesFolder = plr:WaitForChild("Gamepasses",999)
-
--- Run initial filter check at startup
-filterOwnedPasses()
 
 function Gamepasses.Init(State)
-    -- Fallback check if the folder wasn't ready at startup
-    if not gamepassesFolder then
-        gamepassesFolder = plr:FindFirstChild("Gamepasses")
-        filterOwnedPasses()
-    end
-
     local toggleObject = State.Toggles.Gamepasses
-
     local function handleToggleChange()
-        if not gamepassesFolder then
-            gamepassesFolder = plr:FindFirstChild("Gamepasses")
-            filterOwnedPasses()
-        end
-        
-        local isEnabled = toggleObject.Value
-        if isEnabled then
-            for _, id in ipairs(passIds) do
-                gamepassesFolder:SetAttribute(id, true)
-            end
-        else
-            for _, id in ipairs(passIds) do
-                gamepassesFolder:SetAttribute(id, nil)
-            end
+        gamepassesFolder = gamepassesFolder or plr:FindFirstChild("Gamepasses")
+        if not gamepassesFolder then return end
+        for _, id in ipairs(passIds) do gamepassesFolder:SetAttribute(id, toggleObject.Value and true or nil) end
+        if toggleObject.Value or Knit then
+            task.spawn(function()
+                local ok, err = pcall(function()
+                    local EC = emotes()
+                    setPage(EC, State)
+                    if toggleObject.Value then restore(State, EC) end
+                end)
+                if not ok then warn("Emote cache: " .. tostring(err)) end
+            end)
         end
     end
-
-    local toggleConn = toggleObject:GetPropertyChangedSignal("Value"):Connect(handleToggleChange)
-    table.insert(State.Connections, toggleConn)
-
+    table.insert(State.Connections, toggleObject:GetPropertyChangedSignal("Value"):Connect(handleToggleChange))
     handleToggleChange()
 end
 

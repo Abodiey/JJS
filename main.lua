@@ -76,6 +76,7 @@ end
 
 local VariableDefaults = {
     M1JumpDelay = 0.35,
+    SecondEmotes = "",
     SpeedMultiplier = 15,
     Reach = 15,
     LockedTarget = nil,
@@ -286,6 +287,17 @@ local UiLayout = {
 
     {Type = "Section",  Args = {Title = "Unlocks"}},
     {Type = "Toggle",   Module = "Gamepasses",        Args = {Title = "Free Gamepasses", Binding = CatstarState.Toggles.Gamepasses, Value = CatstarState.Toggles.Gamepasses.Value, Callback = function(V) CatstarState.Toggles.Gamepasses.Value = V end}},
+    {Type = "Button", Module = "Gamepasses", Args = {Title = "Calibrate Second Emotes", Parent = CatstarState.Toggles.Gamepasses, Callback = function()
+        Window:SetStatus("Calibrating second-page emotes...")
+        local Success, Message = Modules.Gamepasses.Calibrate(CatstarState)
+        if Success then
+            if Config then
+                Config:Set("Variables", "SecondEmotes", CatstarState.Variables.SecondEmotes.Value)
+            end
+            if not Config or not Config:Save() then Message = Message .. " (config saving unavailable)" end
+        end
+        Window:SetStatus(Message)
+    end}},
     {Type = "Toggle",   Module = "KillSound",         Args = {Title = "Free Kill Sound", Binding = CatstarState.Toggles.KillSound, Value = CatstarState.Toggles.KillSound.Value, Callback = function(V) CatstarState.Toggles.KillSound.Value = V end}},
     {Type = "Section",  Args = {Title = "Config"}},
     {Type = "Button", Args = {Title = "Save Config", Callback = function() Window:SetStatus(Config and Config:Save() and "Config saved" or "Config saving unavailable or failed") end}},
@@ -374,4 +386,5 @@ task.spawn(function()
     table.sort(Names)
     Window:SetStatus(#Names == 0 and "Ready" or ("Failed: " .. table.concat(Names, ", ")))
 end)
+
 
