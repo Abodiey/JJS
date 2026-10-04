@@ -17,7 +17,17 @@ if gamepassesFolder then
 end
 
 local function emotes()
-    Knit = Knit or require(ReplicatedStorage:WaitForChild("Knit"):WaitForChild("Knit"))
+    if not Knit then
+        local Module = ReplicatedStorage:WaitForChild("Knit"):WaitForChild("Knit")
+        local GetIdentity = getthreadidentity or getidentity
+        local SetIdentity = setthreadidentity or setidentity
+        local Identity = GetIdentity and SetIdentity and GetIdentity()
+        if Identity then SetIdentity(2) end
+        local Success, Result = pcall(require, Module)
+        if Identity then SetIdentity(Identity) end
+        if not Success then error(Result, 0) end
+        Knit = Result
+    end
     return Knit.GetController("EmoteController"), Knit.GetService("EmoteService")
 end
 
