@@ -40,6 +40,18 @@ VariablesFolder.Parent = SettingsFolder
 local Config
 local Ranges = {M1JumpDelay = {0, 1}, SpeedMultiplier = {1, 50}, Reach = {1, 15}}
 
+local function SettingValue(Group, Key, Default, Saved)
+    if type(Saved) == type(Default) and (type(Saved) ~= "number" or
+        (Saved == Saved and math.abs(Saved) < math.huge)) then Default = Saved end
+    local Range = Group == "Variables" and Ranges[Key]
+    if Range then Default = math.clamp(Default, Range[1], Range[2]) end
+    if Key == "AimbotKey" then
+        local Valid, Code = pcall(function() return Enum.KeyCode[Default] end)
+        if not Valid or not Code or Default == "Unknown" or Default == "Escape" or Default == "K" then Default = "C" end
+    end
+    return Default
+end
+
 local function BindToFolder(folderInstance, valueClassMapping, defaultValues)
     local cache = {}
     return setmetatable(cache, {
@@ -52,16 +64,7 @@ local function BindToFolder(folderInstance, valueClassMapping, defaultValues)
             local className = key == "LockedTarget" and "ObjectValue" or valueClassMapping[type(default)] or "StringValue"
             local group = folderInstance == TogglesFolder and "Toggles" or "Variables"
             local persistent = key ~= "LockedTarget" and key ~= "Aim"
-            local saved = Config and Config.Data[group][key]
-            if persistent and type(saved) == type(default) then
-                if type(saved) ~= "number" or (saved == saved and math.abs(saved) < math.huge) then default = saved end
-            end
-            local range = group == "Variables" and Ranges[key]
-            if range then default = math.clamp(default, range[1], range[2]) end
-            if key == "AimbotKey" then
-                local valid, keyCode = pcall(function() return Enum.KeyCode[default] end)
-                if not valid or not keyCode or default == "Unknown" or default == "Escape" or default == "K" then default = "C" end
-            end
+            default = SettingValue(group, key, default, persistent and Config and Config.Data[group][key])
             local valObj = Instance.new(className)
             valObj.Name = key
             valObj.Value = default
@@ -187,7 +190,7 @@ CatstarState.TargetFilter = TargetFilter
 local Modules = {}
 local ModuleFailed = {}
 
-local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky", "Notifications"}
+local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "NPCESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky", "Notifications"}
 
 task.spawn(function()
     while not Players.LocalPlayer do task.wait() end
@@ -226,6 +229,37 @@ task.spawn(function()
     end
 end)
 
+local RouletteControls = {}
+local function ApplyConfig()
+    Config.Applying = true
+    for _, Group in ipairs({"Variables", "Toggles"}) do
+        local Folder = Group == "Toggles" and TogglesFolder or VariablesFolder
+        for _, Object in ipairs(Folder:GetChildren()) do
+            local Key = Object.Name
+            if Key ~= "Aim" and Key ~= "LockedTarget" then
+                local Default = VariableDefaults[Key]
+                if Group == "Toggles" then Default = false end
+                if Default ~= nil then
+                    local Value = SettingValue(Group, Key, Default, Config.Data[Group][Key])
+                    Config.Data[Group][Key] = Value
+                    Object.Value = Value
+                end
+            end
+        end
+    end
+    table.clear(CatstarState.RouletteCharacters)
+    for Mode, Name in pairs(Config.Data.RouletteCharacters) do
+        if type(Name) == "string" then CatstarState.RouletteCharacters[Mode] = Name end
+    end
+    for Mode, Control in pairs(RouletteControls) do
+        local Name = CatstarState.RouletteCharacters[Mode] or ""
+        if not table.find(Control.Args.Options, Name) then Name = "" end
+        Control:SetValue(Name)
+    end
+    Config.Applying = false
+    Window:Refresh()
+end
+
 local UiLayout = {
     {Type = "Section",  Args = {Title = "Combat"}},
     {Type = "Toggle",   Module = "M1PingFix", Args = {Title = "M1 Ping Fix", Binding = CatstarState.Toggles.M1PingFix, Value = CatstarState.Toggles.M1PingFix.Value, Callback = function(V) CatstarState.Toggles.M1PingFix.Value = V end}},
@@ -262,6 +296,11 @@ local UiLayout = {
     {Type = "Toggle",   Args = {Title = "Ultimate Bar", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.UltimateBar, Value = CatstarState.Toggles.UltimateBar.Value, Callback = function(V) CatstarState.Toggles.UltimateBar.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Special Meter", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.SpecialMeter, Value = CatstarState.Toggles.SpecialMeter.Value, Callback = function(V) CatstarState.Toggles.SpecialMeter.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Moveset Cooldowns", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.Moveset, Value = CatstarState.Toggles.Moveset.Value, Callback = function(V) CatstarState.Toggles.Moveset.Value = V end}},
+    {Type = "Toggle", Module = "NPCESP", Args = {Title = "NPC Owner ESP", Binding = CatstarState.Toggles.NPCOwnerESP, Value = CatstarState.Toggles.NPCOwnerESP.Value, Callback = function(V) CatstarState.Toggles.NPCOwnerESP.Value = V end}},
+    {Type = "Toggle", Module = "NPCESP", Args = {Title = "Transfigured Human", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCTransfiguredHuman, Value = CatstarState.Toggles.NPCTransfiguredHuman.Value, Callback = function(V) CatstarState.Toggles.NPCTransfiguredHuman.Value = V end}},
+    {Type = "Toggle", Module = "NPCESP", Args = {Title = "KuroClone", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCKuroClone, Value = CatstarState.Toggles.NPCKuroClone.Value, Callback = function(V) CatstarState.Toggles.NPCKuroClone.Value = V end}},
+    {Type = "Toggle", Module = "NPCESP", Args = {Title = "Haruta Sword NPC", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCHarutaSword, Value = CatstarState.Toggles.NPCHarutaSword.Value, Callback = function(V) CatstarState.Toggles.NPCHarutaSword.Value = V end}},
+    {Type = "Toggle", Module = "NPCESP", Args = {Title = "Haruta Sword ESP", Binding = CatstarState.Toggles.HarutaSwordESP, Value = CatstarState.Toggles.HarutaSwordESP.Value, Callback = function(V) CatstarState.Toggles.HarutaSwordESP.Value = V end}},
     {Type = "Toggle",   Module = "BeamESP", Args = {Title = "Beam ESP", Binding = CatstarState.Toggles.BeamESP, Value = CatstarState.Toggles.BeamESP.Value, Callback = function(V) CatstarState.Toggles.BeamESP.Value = V end}},
     {Type = "Toggle",   Module = "DomainESP",         Args = {Title = "Domain ESP", Binding = CatstarState.Toggles.DomainESP, Value = CatstarState.Toggles.DomainESP.Value, Callback = function(V) CatstarState.Toggles.DomainESP.Value = V end}},
     {Type = "Toggle",   Module = "DummyESP",          Args = {Title = "Dummy ESP", Binding = CatstarState.Toggles.DummyESP, Value = CatstarState.Toggles.DummyESP.Value, Callback = function(V) CatstarState.Toggles.DummyESP.Value = V end}},
@@ -301,6 +340,17 @@ local UiLayout = {
     {Type = "Toggle",   Module = "KillSound",         Args = {Title = "Free Kill Sound", Binding = CatstarState.Toggles.KillSound, Value = CatstarState.Toggles.KillSound.Value, Callback = function(V) CatstarState.Toggles.KillSound.Value = V end}},
     {Type = "Section",  Args = {Title = "Config"}},
     {Type = "Button", Args = {Title = "Save Config", Callback = function() Window:SetStatus(Config and Config:Save() and "Config saved" or "Config saving unavailable or failed") end}},
+    {Type = "Button", Args = {Title = "Load Config", Callback = function()
+        if Config and Config:Load() then ApplyConfig(); Window:SetStatus("Config loaded")
+        else Window:SetStatus("Config missing, invalid, or unavailable") end
+    end}},
+    {Type = "Button", Args = {Title = "Reset Config", Callback = function()
+        if not Config then Window:SetStatus("Config unavailable"); return end
+        Config:Reset()
+        ApplyConfig()
+        if Modules.Aimbot and CatstarState.Toggles.Aim.Value then Modules.Aimbot.Toggle(CatstarState) end
+        Window:SetStatus(Config:Save() and "Config reset" or "Config reset; saving unavailable or failed")
+    end}},
     {Type = "Section",  Args = {Title = "Roulette"}},
     {Type = "Toggle",   Module = "RouletteAutoCharacter", Args = {Title = "Auto Character", Binding = CatstarState.Toggles.RouletteAutoCharacter, Value = CatstarState.Toggles.RouletteAutoCharacter.Value, Callback = function(V) CatstarState.Toggles.RouletteAutoCharacter.Value = V end}},
 }
@@ -354,7 +404,7 @@ for _, Element in ipairs(UiLayout) do
                             for _, Name in ipairs(Mod.Characters) do Options[#Options + 1] = Name end
                             for _, Mode in ipairs(Mod.Modes) do
                                 local Key = Mode.Name:upper()
-                                Window:Add("Dropdown", {Title = Mode.Name, Options = Options,
+                                RouletteControls[Key] = Window:Add("Dropdown", {Title = Mode.Name, Options = Options,
                                     Value = CatstarState.RouletteCharacters[Key] or "",
                                     Callback = function(Name)
                                         CatstarState.RouletteCharacters[Key] = Name ~= "" and Name or nil

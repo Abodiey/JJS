@@ -15,6 +15,7 @@
 | Config | Config.lua; main.lua: BindToFolder |
 | Loader or bundling | loader.lua, tools/bundle.py, .github/workflows/bundle.yml |
 | Update/version display | Version.lua, VERSION |
+| NPC owner labels / Haruta sword boxes | NPCESP.lua; main.lua for toggles |
 | Player ESP | ESP.lua for shared lifecycle; the specific feature below for rendering |
 | Aim / reach | Aimbot.lua, Reach.lua; TargetFilter.lua for shared filtering |
 | M1 | M1DownslamAssist.lua or M1PingFix.lua |
@@ -32,6 +33,7 @@ ESP feature files: HealthBar.lua, EvadeBar.lua, SpecialMeter.lua, UltimateBar.lu
 - Load("Name") maps to Name.lua, with exact case. Modules return their API table; inspect main.lua for Init arguments and exceptions.
 - main.lua loads modules asynchronously, initializes each once, and supplies ESP.Dependencies. ESP features use Init(State, Helpers).
 - State.Toggles / State.Variables contain Value objects. main.lua handles defaults, config binding, and numeric bounds. New toggles default false.
+- Config Load/Reset apply live settings through main.lua: ApplyConfig, including RouletteControls. Keep runtime Aim/LockedTarget out of saved settings.
 - Config.lua persists CatstarJJS.json: Toggles, Variables, RouletteCharacters. Stored values are booleans, numbers, or strings.
 - Menu.lua uses Drawing.new for visuals and an invisible ScreenGui for input. Keep one scrolling page, no tabs.
 - Keep feature settings/animation mappings in their source files, not these notes.
