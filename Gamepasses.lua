@@ -49,6 +49,15 @@ local function setPage(EC, State)
     if switch then switch.Visible = EC.MaxPage > 1 end
     if page then page.Visible = EC.MaxPage > 1 end
     local pages = menu:FindFirstChild("Pages")
+    if State.Toggles.Gamepasses.Value then
+        menu.TextBox.Visible = true
+        menu.Switch.Visible = true
+        menu.Page.Visible = true
+        menu.Pages.Visible = true
+        menu.Search.Visible = false
+        menu.TextBox.Text = "x"
+        menu.TextBox.Text = ""
+    end
     local label = pages and pages:FindFirstChild("Page")
     if label then
         label.Visible = EC.MaxPage ~= 1
