@@ -309,17 +309,17 @@ local function AddBlackFlashOptions(Mod, Parent)
     local Children, After = {}, Parent
     for _, Option in ipairs(Mod.Options) do
         local Key = "BlackFlash" .. Option.Id
-        local DelayKey = "BlackFlashDelay" .. Option.Id
+        local DelayKey = "BlackFlashDelayMs" .. Option.Id
         VariableDefaults[DelayKey] = Option.Delay
-        Ranges[DelayKey] = {0, 1}
+        Ranges[DelayKey] = {Option.Min, Option.Max}
         local Toggle = CatstarState.Toggles[Key]
         local Delay = CatstarState.Variables[DelayKey]
         After = Window:Add("Toggle", {Title = Option.Name, Parent = CatstarState.Toggles.BlackFlash,
             Binding = Toggle, Value = Toggle.Value, Callback = function(V) Toggle.Value = V end}, After)
         After:SetEnabled(false)
         Children[#Children + 1] = After
-        After = Window:Add("Slider", {Title = Option.Name .. " delay (s)", Parent = CatstarState.Toggles.BlackFlash,
-            Binding = Delay, Step = 0.01, Value = {Min = 0, Max = 1, Default = Delay.Value},
+        After = Window:Add("Slider", {Title = Option.Name .. " delay (ms)", Parent = CatstarState.Toggles.BlackFlash,
+            Binding = Delay, Step = 1, Value = {Min = Option.Min, Max = Option.Max, Default = Delay.Value},
             Callback = function(V) Delay.Value = V end}, After)
         After:SetEnabled(false)
         Children[#Children + 1] = After

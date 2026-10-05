@@ -208,7 +208,18 @@ function Menu.new(Title, ToggleKey)
         Focus = nil
         TextBox.Visible = false
         if TextBox:IsFocused() then TextBox:ReleaseFocus() end
-        if Commit then Item.Value = Item.Edit; Callback(Item, Item.Value) end
+        if Commit then
+            local Value = Item.Edit
+            if Item.Kind == "Slider" then
+                Value = tonumber(Value)
+                if not Value or Value ~= Value or math.abs(Value) == math.huge then return end
+                local Range, Step = Item.Args.Value, Item.Args.Step or 1
+                Value = math.clamp(Value, Range.Min, Range.Max)
+                Value = math.clamp(Range.Min + math.floor((Value - Range.Min) / Step + 0.5) * Step, Range.Min, Range.Max)
+            end
+            Item.Value = Value
+            Callback(Item, Value)
+        end
     end
 
     Render = function()
@@ -293,7 +304,12 @@ function Menu.new(Title, ToggleKey)
                                 Text(Capture == Item and "..." or Item.Value, Right - 58, RowY + (H - 18) / 2, ValueColor, 13, 60, true)
                             elseif Kind == "Slider" then
                                 Rounded(Right - 96, RowY + 7, 76, 28, 9, Available and Colors.Hover or Colors.DisabledRow)
-                                Text(Item.Args.Step and Item.Args.Step < 1 and string.format("%.2f", Item.Value) or Item.Value, Right - 58, RowY + 12, ValueColor, 13, 60, true)
+                                Text(Focus == Item and Item.Edit .. "|" or (Item.Args.Step and Item.Args.Step < 1 and string.format("%.2f", Item.Value) or Item.Value), Right - 58, RowY + 12, ValueColor, 13, 60, true)
+                                Item.ValueX, Item.ValueY = Right - 96, RowY + 7
+                                if Focus == Item then
+                                    TextBox.Position = UDim2.fromOffset(Right - X - 96, RowY - Y + 7)
+                                    TextBox.Size = UDim2.fromOffset(76, 28)
+                                end
                                 local Range = Item.Args.Value
                                 local TrackX, TrackW = Left + Indent, Right - Left - Indent - 24
                                 local Fraction = (Item.Value - Range.Min) / (Range.Max - Range.Min)
@@ -506,7 +522,20 @@ function Menu.new(Title, ToggleKey)
                     TextBox.Text = Item.Edit
                     TextBox.Visible = true
                     TextBox:CaptureFocus()
-                elseif Kind == "Slider" then Press(Item); Slider = Item; SetSlider(Item, Point.X)
+                elseif Kind == "Slider" then
+                    Press(Item)
+                    if Point.X >= Item.ValueX and Point.X <= Item.ValueX + 76 and Point.Y >= Item.ValueY and Point.Y <= Item.ValueY + 28 then
+                        Focus = Item
+                        Item.Edit = tostring(Item.Value)
+                        TextBox.Text = Item.Edit
+                        TextBox.Visible = true
+                        Render()
+                        TextBox:CaptureFocus()
+                    else
+                        if Focus then FinishInput(true) end
+                        Slider = Item
+                        SetSlider(Item, Point.X)
+                    end
                 elseif Kind == "ScrollBar" then
                     ScrollDrag = Item
                     Item.Offset = Point.Y >= Item.ThumbTop and Point.Y <= Item.ThumbTop + Item.Thumb and (Point.Y - Item.ThumbTop) or Item.Thumb / 2
