@@ -8,6 +8,7 @@ BlackFlash.Options = {
     {Id = "72475960800126", Name = "Mahito Black Flash", Delay = 200, Min = 70, Max = 200, Move = 3},
     {Id = "100081544058065", Name = "Todo Kick", Delay = 300, Min = 0, Max = 350, Move = 2},
     {Id = "136536827155962", Name = "Todo BlackFlash", Delay = 350, Min = 350, Max = 550, Move = 2},
+    {Id = "110906451704074", Name = "Heian BlackFlash", Delay = 180, Min = 80, Max = 280, Move = 3},
 }
 local DB = {}
 for _, Option in ipairs(BlackFlash.Options) do
