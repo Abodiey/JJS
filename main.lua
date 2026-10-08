@@ -262,33 +262,27 @@ local function ApplyConfig()
 end
 
 local UiLayout = {
-    {Type = "Section",  Args = {Title = "Combat"}},
+    {Type = "Section", Args = {Title = "Combat"}},
     {Type = "Toggle",   Module = "M1PingFix", Args = {Title = "M1 Ping Fix", Binding = CatstarState.Toggles.M1PingFix, Value = CatstarState.Toggles.M1PingFix.Value, Callback = function(V) CatstarState.Toggles.M1PingFix.Value = V end}},
     {Type = "Slider",   Module = "M1PingFix", Args = {Title = "M1 Jump Delay (s)", Binding = CatstarState.Variables.M1JumpDelay, Step = 0.01, Value = {Min = 0, Max = 1, Default = CatstarState.Variables.M1JumpDelay.Value}, Callback = function(V) CatstarState.Variables.M1JumpDelay.Value = V end}},
     {Type = "Toggle",   Module = "M1DownslamAssist", Args = {Title = "M1 Downslam Assist", Binding = CatstarState.Toggles.M1DownslamAssist, Value = CatstarState.Toggles.M1DownslamAssist.Value, Callback = function(V) CatstarState.Toggles.M1DownslamAssist.Value = V end}},
-
     {Type = "Toggle",   Module = "BlackFlash",        Args = {Title = "Auto BlackFlash", Binding = CatstarState.Toggles.BlackFlash, Value = CatstarState.Toggles.BlackFlash.Value, Callback = function(V) CatstarState.Toggles.BlackFlash.Value = V end}},
     {Type = "Toggle",   Module = "Ratio",             Args = {Title = "Auto Nanami Ratio", Binding = CatstarState.Toggles.Ratio, Value = CatstarState.Toggles.Ratio.Value, Callback = function(V) CatstarState.Toggles.Ratio.Value = V end}},
     {Type = "Toggle",   Module = "AutoBurst",         Args = {Title = "Auto Burst", Binding = CatstarState.Toggles.AutoBurst, Value = CatstarState.Toggles.AutoBurst.Value, Callback = function(V) CatstarState.Toggles.AutoBurst.Value = V end}},
     {Type = "Toggle",   Module = "QTE",               Args = {Title = "Auto QTE", Binding = CatstarState.Toggles.QTE, Value = CatstarState.Toggles.QTE.Value, Callback = function(V) CatstarState.Toggles.QTE.Value = V end}},
-    {Type = "Toggle",   Module = "Reach",             Args = {Title = "Front Dash Reach", Binding = CatstarState.Toggles.Reach, Value = CatstarState.Toggles.Reach.Value, Callback = function(V) CatstarState.Toggles.Reach.Value = V end}},
-    {Type = "Slider",   Module = "Reach",             Args = {Title = "Reach Distance", Binding = CatstarState.Variables.Reach, Step = 1, Value = {Min = 1, Max = 15, Default = CatstarState.Variables.Reach.Value}, Callback = function(V) CatstarState.Variables.Reach.Value = V end}},
-    
-    {Type = "Section",  Args = {Title = "Aimbot Settings"}},
+
+    {Type = "Section", Args = {Title = "Targeting"}},
     {Type = "Keybind",  Module = "Aimbot",            Args = {Title = "Aimbot Keybind", Binding = CatstarState.Variables.AimbotKey, Value = CatstarState.Variables.AimbotKey.Value, OnChanged = function(V) CatstarState.Variables.AimbotKey.Value = V end, Callback = function() if Modules.Aimbot then Modules.Aimbot.Toggle(CatstarState) end end}},
     {Type = "Toggle",   Module = "Aimbot",            Args = {Title = "Team Check", Binding = CatstarState.Toggles.TeamCheck, Value = CatstarState.Toggles.TeamCheck.Value, Callback = function(V) CatstarState.Toggles.TeamCheck.Value = V end}},
+    {Type = "Toggle",   Module = "Reach",             Args = {Title = "Front Dash Reach", Binding = CatstarState.Toggles.Reach, Value = CatstarState.Toggles.Reach.Value, Callback = function(V) CatstarState.Toggles.Reach.Value = V end}},
+    {Type = "Slider",   Module = "Reach",             Args = {Title = "Reach Distance", Binding = CatstarState.Variables.Reach, Step = 1, Value = {Min = 1, Max = 15, Default = CatstarState.Variables.Reach.Value}, Callback = function(V) CatstarState.Variables.Reach.Value = V end}},
 
-    {Type = "Section",  Args = {Title = "Movement & Protection"}},
+    {Type = "Section", Args = {Title = "Movement & Protection"}},
     {Type = "Toggle",   Module = "Noclip",            Args = {Title = "Noclip through Players", Binding = CatstarState.Toggles.Noclip, Value = CatstarState.Toggles.Noclip.Value, Callback = function(V) CatstarState.Toggles.Noclip.Value = V end}},
     {Type = "Toggle",   Module = "AntiVoid",          Args = {Title = "Anti Void", Binding = CatstarState.Toggles.AntiVoid, Value = CatstarState.Toggles.AntiVoid.Value, Callback = function(V) CatstarState.Toggles.AntiVoid.Value = V end}},
     {Type = "Toggle",   Module = "AntiBlackhole",     Args = {Title = "Anti Blackhole", Binding = CatstarState.Toggles.AntiBlackhole, Value = CatstarState.Toggles.AntiBlackhole.Value, Callback = function(V) CatstarState.Toggles.AntiBlackhole.Value = V end}},
-    {Type = "Toggle",   Module = "InstantInteract",   Args = {Title = "Instant Interact", Binding = CatstarState.Toggles.InstantInteract, Value = CatstarState.Toggles.InstantInteract.Value, Callback = function(V) CatstarState.Toggles.InstantInteract.Value = V end}},
-    
-    {Type = "Section",  Args = {Title = "Emote Exploits"}},
-    {Type = "Toggle",   Module = "DiamondInTheSky",   Args = {Title = "Faster Diamond In The Sky", Binding = CatstarState.Toggles.DiamondInTheSky, Value = CatstarState.Toggles.DiamondInTheSky.Value, Callback = function(V) CatstarState.Toggles.DiamondInTheSky.Value = V end}},
-    {Type = "Slider",   Module = "DiamondInTheSky",   Args = {Title = "Diamond In The Sky Speed", Binding = CatstarState.Variables.SpeedMultiplier, Step = 1, Value = {Min = 1, Max = 50, Default = CatstarState.Variables.SpeedMultiplier.Value}, Callback = function(V) CatstarState.Variables.SpeedMultiplier.Value = V end}},
-    
-    {Type = "Section",  Args = {Title = "Visuals"}},
+
+    {Type = "Section", Args = {Title = "Player ESP"}},
     {Type = "Toggle",   Module = "ESP",               Args = {Title = "Player ESP", Binding = CatstarState.Toggles.ESP, Value = CatstarState.Toggles.ESP.Value, Callback = function(V) CatstarState.Toggles.ESP.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Tracers", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.Tracers, Value = CatstarState.Toggles.Tracers.Value, Callback = function(V) CatstarState.Toggles.Tracers.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Player Info", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.PlayerInfo, Value = CatstarState.Toggles.PlayerInfo.Value, Callback = function(V) CatstarState.Toggles.PlayerInfo.Value = V end}},
@@ -297,35 +291,24 @@ local UiLayout = {
     {Type = "Toggle",   Args = {Title = "Ultimate Bar", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.UltimateBar, Value = CatstarState.Toggles.UltimateBar.Value, Callback = function(V) CatstarState.Toggles.UltimateBar.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Special Meter", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.SpecialMeter, Value = CatstarState.Toggles.SpecialMeter.Value, Callback = function(V) CatstarState.Toggles.SpecialMeter.Value = V end}},
     {Type = "Toggle",   Args = {Title = "Moveset Cooldowns", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.Moveset, Value = CatstarState.Toggles.Moveset.Value, Callback = function(V) CatstarState.Toggles.Moveset.Value = V end}},
+
+    {Type = "Section", Args = {Title = "NPC ESP"}},
     {Type = "Toggle", Module = "NPCESP", Args = {Title = "NPC Owner ESP", Binding = CatstarState.Toggles.NPCOwnerESP, Value = CatstarState.Toggles.NPCOwnerESP.Value, Callback = function(V) CatstarState.Toggles.NPCOwnerESP.Value = V end}},
     {Type = "Toggle", Module = "NPCESP", Args = {Title = "Transfigured Human", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCTransfiguredHuman, Value = CatstarState.Toggles.NPCTransfiguredHuman.Value, Callback = function(V) CatstarState.Toggles.NPCTransfiguredHuman.Value = V end}},
     {Type = "Toggle", Module = "NPCESP", Args = {Title = "KuroClone", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCKuroClone, Value = CatstarState.Toggles.NPCKuroClone.Value, Callback = function(V) CatstarState.Toggles.NPCKuroClone.Value = V end}},
     {Type = "Toggle", Module = "NPCESP", Args = {Title = "Haruta Sword NPC", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCHarutaSword, Value = CatstarState.Toggles.NPCHarutaSword.Value, Callback = function(V) CatstarState.Toggles.NPCHarutaSword.Value = V end}},
     {Type = "Toggle", Module = "NPCESP", Args = {Title = "Haruta Sword ESP", Binding = CatstarState.Toggles.HarutaSwordESP, Value = CatstarState.Toggles.HarutaSwordESP.Value, Callback = function(V) CatstarState.Toggles.HarutaSwordESP.Value = V end}},
+
+    {Type = "Section", Args = {Title = "World ESP"}},
     {Type = "Toggle",   Module = "BeamESP", Args = {Title = "Beam ESP", Binding = CatstarState.Toggles.BeamESP, Value = CatstarState.Toggles.BeamESP.Value, Callback = function(V) CatstarState.Toggles.BeamESP.Value = V end}},
     {Type = "Toggle",   Module = "DomainESP",         Args = {Title = "Domain ESP", Binding = CatstarState.Toggles.DomainESP, Value = CatstarState.Toggles.DomainESP.Value, Callback = function(V) CatstarState.Toggles.DomainESP.Value = V end}},
     {Type = "Toggle",   Module = "DummyESP",          Args = {Title = "Dummy ESP", Binding = CatstarState.Toggles.DummyESP, Value = CatstarState.Toggles.DummyESP.Value, Callback = function(V) CatstarState.Toggles.DummyESP.Value = V end}},
     {Type = "Toggle",   Module = "ItemESP",           Args = {Title = "Item ESP", Binding = CatstarState.Toggles.ItemESP, Value = CatstarState.Toggles.ItemESP.Value, Callback = function(V) CatstarState.Toggles.ItemESP.Value = V end}},
-    {Type = "Toggle",   Module = "Aura",              Args = {Title = "Message Aura", Binding = CatstarState.Toggles.MsgAura, Value = CatstarState.Toggles.MsgAura.Value, Callback = function(V) CatstarState.Toggles.MsgAura.Value = V end}},
-    
-    {Type = "Section",  Args = {Title = "Notifications"}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Notifications", Binding = CatstarState.Toggles.Notifications, Value = CatstarState.Toggles.Notifications.Value, Callback = function(V) CatstarState.Toggles.Notifications.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Joins", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyJoins, Value = CatstarState.Toggles.NotifyJoins.Value, Callback = function(V) CatstarState.Toggles.NotifyJoins.Value = V end}},
-    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Join scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyJoinScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyJoinScope.Value, Callback = function(V) CatstarState.Variables.NotifyJoinScope.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Leaves", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyLeaves, Value = CatstarState.Toggles.NotifyLeaves.Value, Callback = function(V) CatstarState.Toggles.NotifyLeaves.Value = V end}},
-    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Leave scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyLeaveScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyLeaveScope.Value, Callback = function(V) CatstarState.Variables.NotifyLeaveScope.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Emote spending", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyBuys, Value = CatstarState.Toggles.NotifyBuys.Value, Callback = function(V) CatstarState.Toggles.NotifyBuys.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Deaths", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyDeaths, Value = CatstarState.Toggles.NotifyDeaths.Value, Callback = function(V) CatstarState.Toggles.NotifyDeaths.Value = V end}},
-    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Death scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyDeathScope, Options = {"Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyDeathScope.Value, Callback = function(V) CatstarState.Variables.NotifyDeathScope.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate starts", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUlts, Value = CatstarState.Toggles.NotifyUlts.Value, Callback = function(V) CatstarState.Toggles.NotifyUlts.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate ends", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUnults, Value = CatstarState.Toggles.NotifyUnults.Value, Callback = function(V) CatstarState.Toggles.NotifyUnults.Value = V end}},
-    
-    {Type = "Section",  Args = {Title = "Utility Mechanics"}},
-    {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
-    {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
 
+    {Type = "Section", Args = {Title = "Roulette"}},
+    {Type = "Toggle",   Module = "RouletteAutoCharacter", Args = {Title = "Auto Character", Binding = CatstarState.Toggles.RouletteAutoCharacter, Value = CatstarState.Toggles.RouletteAutoCharacter.Value, Callback = function(V) CatstarState.Toggles.RouletteAutoCharacter.Value = V end}},
 
-    {Type = "Section",  Args = {Title = "Unlocks"}},
+    {Type = "Section", Args = {Title = "Emotes & Unlocks"}},
     {Type = "Toggle",   Module = "Gamepasses",        Args = {Title = "Free Gamepasses", Binding = CatstarState.Toggles.Gamepasses, Value = CatstarState.Toggles.Gamepasses.Value, Callback = function(V) CatstarState.Toggles.Gamepasses.Value = V end}},
     {Type = "Button", Module = "Gamepasses", Args = {Title = "Calibrate Second Emotes", Parent = CatstarState.Toggles.Gamepasses, Callback = function()
         Window:SetStatus("Calibrating second-page emotes...")
@@ -338,8 +321,31 @@ local UiLayout = {
         end
         Window:SetStatus(Message)
     end}},
+    {Type = "Toggle",   Module = "DiamondInTheSky",   Args = {Title = "Faster Diamond In The Sky", Binding = CatstarState.Toggles.DiamondInTheSky, Value = CatstarState.Toggles.DiamondInTheSky.Value, Callback = function(V) CatstarState.Toggles.DiamondInTheSky.Value = V end}},
+    {Type = "Slider",   Module = "DiamondInTheSky",   Args = {Title = "Diamond In The Sky Speed", Binding = CatstarState.Variables.SpeedMultiplier, Step = 1, Value = {Min = 1, Max = 50, Default = CatstarState.Variables.SpeedMultiplier.Value}, Callback = function(V) CatstarState.Variables.SpeedMultiplier.Value = V end}},
     {Type = "Toggle",   Module = "KillSound",         Args = {Title = "Free Kill Sound", Binding = CatstarState.Toggles.KillSound, Value = CatstarState.Toggles.KillSound.Value, Callback = function(V) CatstarState.Toggles.KillSound.Value = V end}},
-    {Type = "Section",  Args = {Title = "Config"}},
+
+    {Type = "Section", Args = {Title = "Chat"}},
+    {Type = "Toggle",   Module = "Aura",              Args = {Title = "Message Aura", Binding = CatstarState.Toggles.MsgAura, Value = CatstarState.Toggles.MsgAura.Value, Callback = function(V) CatstarState.Toggles.MsgAura.Value = V end}},
+
+    {Type = "Section", Args = {Title = "Notifications"}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Notifications", Binding = CatstarState.Toggles.Notifications, Value = CatstarState.Toggles.Notifications.Value, Callback = function(V) CatstarState.Toggles.Notifications.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Joins", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyJoins, Value = CatstarState.Toggles.NotifyJoins.Value, Callback = function(V) CatstarState.Toggles.NotifyJoins.Value = V end}},
+    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Join scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyJoinScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyJoinScope.Value, Callback = function(V) CatstarState.Variables.NotifyJoinScope.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Leaves", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyLeaves, Value = CatstarState.Toggles.NotifyLeaves.Value, Callback = function(V) CatstarState.Toggles.NotifyLeaves.Value = V end}},
+    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Leave scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyLeaveScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyLeaveScope.Value, Callback = function(V) CatstarState.Variables.NotifyLeaveScope.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Deaths", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyDeaths, Value = CatstarState.Toggles.NotifyDeaths.Value, Callback = function(V) CatstarState.Toggles.NotifyDeaths.Value = V end}},
+    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Death scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyDeathScope, Options = {"Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyDeathScope.Value, Callback = function(V) CatstarState.Variables.NotifyDeathScope.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate starts", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUlts, Value = CatstarState.Toggles.NotifyUlts.Value, Callback = function(V) CatstarState.Toggles.NotifyUlts.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate ends", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUnults, Value = CatstarState.Toggles.NotifyUnults.Value, Callback = function(V) CatstarState.Toggles.NotifyUnults.Value = V end}},
+    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Emote spending", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyBuys, Value = CatstarState.Toggles.NotifyBuys.Value, Callback = function(V) CatstarState.Toggles.NotifyBuys.Value = V end}},
+
+    {Type = "Section", Args = {Title = "Utilities"}},
+    {Type = "Toggle",   Module = "InstantInteract",   Args = {Title = "Instant Interact", Binding = CatstarState.Toggles.InstantInteract, Value = CatstarState.Toggles.InstantInteract.Value, Callback = function(V) CatstarState.Toggles.InstantInteract.Value = V end}},
+    {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
+    {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
+
+    {Type = "Section", Args = {Title = "Config"}},
     {Type = "Button", Args = {Title = "Save Config", Callback = function() Window:SetStatus(Config and Config:Save() and "Config saved" or "Config saving unavailable or failed") end}},
     {Type = "Button", Args = {Title = "Load Config", Callback = function()
         if Config and Config:Load() then ApplyConfig(); Window:SetStatus("Config loaded")
@@ -352,8 +358,6 @@ local UiLayout = {
         if Modules.Aimbot and CatstarState.Toggles.Aim.Value then Modules.Aimbot.Toggle(CatstarState) end
         Window:SetStatus(Config:Save() and "Config reset" or "Config reset; saving unavailable or failed")
     end}},
-    {Type = "Section",  Args = {Title = "Roulette"}},
-    {Type = "Toggle",   Module = "RouletteAutoCharacter", Args = {Title = "Auto Character", Binding = CatstarState.Toggles.RouletteAutoCharacter, Value = CatstarState.Toggles.RouletteAutoCharacter.Value, Callback = function(V) CatstarState.Toggles.RouletteAutoCharacter.Value = V end}},
 }
 
 local function AddBlackFlashOptions(Mod, Section)
