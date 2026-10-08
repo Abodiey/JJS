@@ -11,7 +11,7 @@
 | Request | Files / symbols |
 | --- | --- |
 | Feature UI, defaults, module registration | main.lua: UiLayout, ModuleList, VariableDefaults, Ranges |
-| Drawing UI, scrolling, sliders, text entry, animations | Menu.lua |
+| UI integration / settings bridge | Interface.lua; runtime UI comes from Abodiey/iris-drawing-ui dist/Iris.lua |
 | Config | Config.lua; main.lua: BindToFolder |
 | Loader or bundling | loader.lua, tools/bundle.py, .github/workflows/bundle.yml |
 | Update/version display | Version.lua, VERSION |
@@ -35,7 +35,10 @@ ESP feature files: HealthBar.lua, EvadeBar.lua, SpecialMeter.lua, UltimateBar.lu
 - State.Toggles / State.Variables contain Value objects. main.lua handles defaults, config binding, and numeric bounds. New toggles default false.
 - Config Load/Reset apply live settings through main.lua: ApplyConfig, including RouletteControls. Keep runtime Aim/LockedTarget out of saved settings.
 - Config.lua persists CatstarJJS.json: Toggles, Variables, RouletteCharacters. Stored values are booleans, numbers, or strings.
-- Menu.lua uses Drawing.new for visuals and an invisible ScreenGui for input. Keep one scrolling page, no tabs.
+- Interface.lua downloads Iris from its main-branch raw URL at runtime (outside main\'s bundled request). Do not copy/embed the library or rebuild Drawing UI in JJS. It uses only public API calls; keep one scrolling page, no tabs.
+- Numeric slider editing uses adjacent Iris textboxes; normalize through the slider setter. Keep CatstarJJS.json as the existing persistence format.
+- Iris lacks public control disabling/renaming: the bridge guards callbacks and restores blocked values, while Train status uses a label. Keybind actions run only on press. Notifications call State.Notify.
+- BlackFlash controls are created beside their master before async Init; Roulette uses None for its unassigned option because Iris rejects empty dropdown options.
 - Keep feature settings/animation mappings in their source files, not these notes.
 
 ## Finish

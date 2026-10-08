@@ -47,7 +47,7 @@ local function SettingValue(Group, Key, Default, Saved)
     if Range then Default = math.clamp(Default, Range[1], Range[2]) end
     if Key == "AimbotKey" then
         local Valid, Code = pcall(function() return Enum.KeyCode[Default] end)
-        if not Valid or not Code or Default == "Unknown" or Default == "Escape" or Default == "K" then Default = "C" end
+        if Default ~= "None" and (not Valid or not Code or Default == "Unknown" or Default == "Escape" or Default == "K") then Default = "C" end
     end
     return Default
 end
@@ -163,13 +163,14 @@ if type(ConfigModule) == "table" and type(ConfigModule.new) == "function" then
     end
 end
 
-local Menu = Load("Menu")
-if type(Menu) ~= "table" or type(Menu.new) ~= "function" then
+local Interface = Load("Interface")
+if type(Interface) ~= "table" or type(Interface.new) ~= "function" then
     warn("Could not load the menu")
     return
 end
 while not Players.LocalPlayer or not workspace.CurrentCamera do task.wait() end
-local Window = Menu.new("CATSTAR", Enum.KeyCode.K)
+local Window = Interface.new()
+CatstarState.Notify = function(Title, Content) Window:Notify(Title, Content) end
 getgenv().CatstarMenu = Window
 local Version = Load("Version")
 if type(Version) == "table" and type(Version.Init) == "function" then
@@ -187,10 +188,10 @@ if type(TargetFilter) ~= "table" or type(TargetFilter.IsValid) ~= "function" the
 end
 CatstarState.TargetFilter = TargetFilter
 
-local Modules = {}
-local ModuleFailed = {}
+local Modules = {BlackFlash = Load("BlackFlash")}
+local ModuleFailed = {BlackFlash = Modules.BlackFlash == nil}
 
-local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "NPCESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "BlackFlash", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky", "Notifications"}
+local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "NPCESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky", "Notifications"}
 
 task.spawn(function()
     while not Players.LocalPlayer do task.wait() end
@@ -252,8 +253,8 @@ local function ApplyConfig()
         if type(Name) == "string" then CatstarState.RouletteCharacters[Mode] = Name end
     end
     for Mode, Control in pairs(RouletteControls) do
-        local Name = CatstarState.RouletteCharacters[Mode] or ""
-        if not table.find(Control.Args.Options, Name) then Name = "" end
+        local Name = CatstarState.RouletteCharacters[Mode] or "None"
+        if not table.find(Control.Args.Options, Name) then Name = "None" end
         Control:SetValue(Name)
     end
     Config.Applying = false
@@ -355,8 +356,8 @@ local UiLayout = {
     {Type = "Toggle",   Module = "RouletteAutoCharacter", Args = {Title = "Auto Character", Binding = CatstarState.Toggles.RouletteAutoCharacter, Value = CatstarState.Toggles.RouletteAutoCharacter.Value, Callback = function(V) CatstarState.Toggles.RouletteAutoCharacter.Value = V end}},
 }
 
-local function AddBlackFlashOptions(Mod, Parent)
-    local Children, After = {}, Parent
+local function AddBlackFlashOptions(Mod, Section)
+    local Children = {}
     for _, Option in ipairs(Mod.Options) do
         local Key = "BlackFlash" .. Option.Id
         local DelayKey = "BlackFlashDelayMs" .. Option.Id
@@ -364,15 +365,15 @@ local function AddBlackFlashOptions(Mod, Parent)
         Ranges[DelayKey] = {Option.Min, Option.Max}
         local Toggle = CatstarState.Toggles[Key]
         local Delay = CatstarState.Variables[DelayKey]
-        After = Window:Add("Toggle", {Title = Option.Name, Parent = CatstarState.Toggles.BlackFlash,
-            Binding = Toggle, Value = Toggle.Value, Callback = function(V) Toggle.Value = V end}, After)
-        After:SetEnabled(false)
-        Children[#Children + 1] = After
-        After = Window:Add("Slider", {Title = Option.Name .. " delay (ms)", Parent = CatstarState.Toggles.BlackFlash,
+        local Component = Window:AddControl(Section,"Toggle", {Title = Option.Name, Parent = CatstarState.Toggles.BlackFlash,
+            Binding = Toggle, Value = Toggle.Value, Callback = function(V) Toggle.Value = V end})
+        Component:SetEnabled(false)
+        Children[#Children + 1] = Component
+        local Component = Window:AddControl(Section,"Slider", {Title = Option.Name .. " delay (ms)", Parent = CatstarState.Toggles.BlackFlash,
             Binding = Delay, Step = 1, Value = {Min = Option.Min, Max = Option.Max, Default = Delay.Value},
-            Callback = function(V) Delay.Value = V end}, After)
-        After:SetEnabled(false)
-        Children[#Children + 1] = After
+            Callback = function(V) Delay.Value = V end})
+        Component:SetEnabled(false)
+        Children[#Children + 1] = Component
     end
     return Children
 end
@@ -380,34 +381,37 @@ end
 local InitializedModules = {}
 local Pending = 0
 local Failures = {}
+local Section
 for _, Element in ipairs(UiLayout) do
-    local Component = Window:Add(Element.Type, Element.Args)
+    if Element.Type == "Section" then
+        Section = Window:AddSection(Element.Args.Title)
+    else
+    local Component = Window:AddControl(Section, Element.Type, Element.Args, Element.InitArg == "Component")
     local TargetModule = Element.Module
+    local Children = TargetModule == "BlackFlash" and Modules.BlackFlash and AddBlackFlashOptions(Modules.BlackFlash, Section) or {}
     if TargetModule then
         Pending = Pending + 1
         Component:SetEnabled(false)
         task.spawn(function()
             while not Modules[TargetModule] and not ModuleFailed[TargetModule] do task.wait() end
             local Mod = Modules[TargetModule]
-            local Children = {}
             local RunName = Element.InitName or "Init"
             if Mod and RunName ~= "None" then
                 if not InitializedModules[TargetModule] then
                     InitializedModules[TargetModule] = "Loading"
                     local Success, Error = xpcall(function()
                         assert(type(Mod) == "table" and type(Mod[RunName]) == "function", "Missing " .. RunName)
-                        if TargetModule == "BlackFlash" then Children = AddBlackFlashOptions(Mod, Component) end
                         if Element.InitArg == "Component" then Mod[RunName](Component, CatstarState)
                         else Mod[RunName](CatstarState) end
                         if TargetModule == "RouletteAutoCharacter" then
-                            local Options = {""}
+                            local Options = {"None"}
                             for _, Name in ipairs(Mod.Characters) do Options[#Options + 1] = Name end
                             for _, Mode in ipairs(Mod.Modes) do
                                 local Key = Mode.Name:upper()
-                                RouletteControls[Key] = Window:Add("Dropdown", {Title = Mode.Name, Options = Options,
-                                    Value = CatstarState.RouletteCharacters[Key] or "",
+                                RouletteControls[Key] = Window:AddControl(Window.Sections.Roulette, "Dropdown", {Title = Mode.Name, Options = Options,
+                                    Value = table.find(Options, CatstarState.RouletteCharacters[Key]) and CatstarState.RouletteCharacters[Key] or "None",
                                     Callback = function(Name)
-                                        CatstarState.RouletteCharacters[Key] = Name ~= "" and Name or nil
+                                        CatstarState.RouletteCharacters[Key] = Name ~= "None" and Name or nil
                                         if Config then Config:Set("RouletteCharacters", Key, CatstarState.RouletteCharacters[Key]) end
                                     end})
                             end
@@ -425,6 +429,7 @@ for _, Element in ipairs(UiLayout) do
             if not Ready then Failures[TargetModule] = true end
             Pending = Pending - 1
         end)
+    end
     end
 end
 Window:Refresh()
