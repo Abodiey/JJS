@@ -28,6 +28,8 @@ local function emotes()
         if not Success then error(Result, 0) end
         Knit = Result
     end
+    local Started, Error = Knit.OnStart():await()
+    if not Started then error(Error or "Knit could not start", 0) end
     return Knit.GetController("EmoteController"), Knit.GetService("EmoteService")
 end
 
