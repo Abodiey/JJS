@@ -95,22 +95,20 @@ local ClassMap = {
     ["string"] = "StringValue",
 }
 
-local StateStructure = {
+local CatstarState = {
     RouletteCharacters = {},
     Connections = setmetatable({}, { __mode = "v" }),
     Toggles = BindToFolder(TogglesFolder, ClassMap, {}),
     Variables = BindToFolder(VariablesFolder, ClassMap, VariableDefaults),
 }
 
-getgenv().CatstarState = StateStructure
-local CatstarState = StateStructure
+getgenv().CatstarState = CatstarState
 
 local function Load(Name)
     local Url = BaseUrl .. Name .. ".lua"
     local MaxRetries = 5
     local DelayTime = 1 + math.random()
     local Response = nil
-    local Success = false
 
     for Attempt = 1, MaxRetries do
         local ReqSuccess, ReqResponse = pcall(function()
@@ -122,7 +120,6 @@ local function Load(Name)
 
         if ReqSuccess and type(ReqResponse) == "table" and ReqResponse.StatusCode == 200 then
             Response = ReqResponse
-            Success = true
             break
         end
 
@@ -135,7 +132,7 @@ local function Load(Name)
         end
     end
 
-    if not Success or not Response then
+    if not Response then
         warn("Failed to fetch " .. Name .. " after max retries.")
         return nil 
     end
@@ -191,7 +188,13 @@ CatstarState.TargetFilter = TargetFilter
 local Modules = {BlackFlash = Load("BlackFlash")}
 local ModuleFailed = {BlackFlash = Modules.BlackFlash == nil}
 
-local ModuleList = {"RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "NPCESP", "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract", "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "Ratio", "DummyESP", "Rejoin", "Train", "KillSound", "DiamondInTheSky", "Notifications"}
+local ModuleList = {
+    "RouletteAutoCharacter", "BeamESP", "M1PingFix", "M1DownslamAssist", "ESP", "NPCESP",
+    "Aimbot", "Noclip", "Gamepasses", "AutoBurst", "Aura", "AntiBlackhole", "InstantInteract",
+    "QTE", "DomainESP", "Reach", "AntiVoid", "ItemESP", "Ratio", "DummyESP", "Rejoin",
+    "Train", "KillSound", "DiamondInTheSky", "Notifications",
+}
+local ESPFeatures = {"HealthBar", "EvadeBar", "SpecialMeter", "UltimateBar", "Moveset", "PlayerInfo", "Tracers"}
 
 task.spawn(function()
     while not Players.LocalPlayer do task.wait() end
@@ -200,9 +203,9 @@ task.spawn(function()
             local Result = Load(Name)
             if Result and Name == "ESP" then
                 local Dependencies = {}
-                local Pending = 7
+                local Pending = #ESPFeatures
                 local Failed = false
-                for _, Feature in ipairs({"HealthBar", "EvadeBar", "SpecialMeter", "UltimateBar", "Moveset", "PlayerInfo", "Tracers"}) do
+                for _, Feature in ipairs(ESPFeatures) do
                     task.spawn(function()
                         local FeatureModule = Load(Feature)
                         if type(FeatureModule) == "table" and type(FeatureModule.Init) == "function" then
@@ -261,55 +264,77 @@ local function ApplyConfig()
     Window:Refresh()
 end
 
+local function Toggle(Title, Key, Module, Parent)
+    local Binding = CatstarState.Toggles[Key]
+    return {Type = "Toggle", Module = Module, Args = {
+        Title = Title, Binding = Binding, Value = Binding.Value,
+        Parent = Parent and CatstarState.Toggles[Parent],
+        Callback = function(V) CatstarState.Toggles[Key].Value = V end,
+    }}
+end
+
 local UiLayout = {
     {Type = "Section", Args = {Title = "Combat"}},
-    {Type = "Toggle",   Module = "M1PingFix", Args = {Title = "M1 Ping Fix", Binding = CatstarState.Toggles.M1PingFix, Value = CatstarState.Toggles.M1PingFix.Value, Callback = function(V) CatstarState.Toggles.M1PingFix.Value = V end}},
-    {Type = "Slider",   Module = "M1PingFix", Args = {Title = "M1 Jump Delay (s)", Binding = CatstarState.Variables.M1JumpDelay, Step = 0.01, Value = {Min = 0, Max = 1, Default = CatstarState.Variables.M1JumpDelay.Value}, Callback = function(V) CatstarState.Variables.M1JumpDelay.Value = V end}},
-    {Type = "Toggle",   Module = "M1DownslamAssist", Args = {Title = "M1 Downslam Assist", Binding = CatstarState.Toggles.M1DownslamAssist, Value = CatstarState.Toggles.M1DownslamAssist.Value, Callback = function(V) CatstarState.Toggles.M1DownslamAssist.Value = V end}},
-    {Type = "Toggle",   Module = "BlackFlash",        Args = {Title = "Auto BlackFlash", Binding = CatstarState.Toggles.BlackFlash, Value = CatstarState.Toggles.BlackFlash.Value, Callback = function(V) CatstarState.Toggles.BlackFlash.Value = V end}},
-    {Type = "Toggle",   Module = "Ratio",             Args = {Title = "Auto Nanami Ratio", Binding = CatstarState.Toggles.Ratio, Value = CatstarState.Toggles.Ratio.Value, Callback = function(V) CatstarState.Toggles.Ratio.Value = V end}},
-    {Type = "Toggle",   Module = "AutoBurst",         Args = {Title = "Auto Burst", Binding = CatstarState.Toggles.AutoBurst, Value = CatstarState.Toggles.AutoBurst.Value, Callback = function(V) CatstarState.Toggles.AutoBurst.Value = V end}},
-    {Type = "Toggle",   Module = "QTE",               Args = {Title = "Auto QTE", Binding = CatstarState.Toggles.QTE, Value = CatstarState.Toggles.QTE.Value, Callback = function(V) CatstarState.Toggles.QTE.Value = V end}},
+    Toggle("M1 Ping Fix", "M1PingFix", "M1PingFix"),
+    {Type = "Slider",   Module = "M1PingFix", Args = {
+        Title = "M1 Jump Delay (s)", Binding = CatstarState.Variables.M1JumpDelay,
+        Step = 0.01, Value = {Min = 0, Max = 1, Default = CatstarState.Variables.M1JumpDelay.Value},
+        Callback = function(V) CatstarState.Variables.M1JumpDelay.Value = V end,
+    }},
+    Toggle("M1 Downslam Assist", "M1DownslamAssist", "M1DownslamAssist"),
+    Toggle("Auto BlackFlash", "BlackFlash", "BlackFlash"),
+    Toggle("Auto Nanami Ratio", "Ratio", "Ratio"),
+    Toggle("Auto Burst", "AutoBurst", "AutoBurst"),
+    Toggle("Auto QTE", "QTE", "QTE"),
 
     {Type = "Section", Args = {Title = "Targeting"}},
-    {Type = "Keybind",  Module = "Aimbot",            Args = {Title = "Aimbot Keybind", Binding = CatstarState.Variables.AimbotKey, Value = CatstarState.Variables.AimbotKey.Value, OnChanged = function(V) CatstarState.Variables.AimbotKey.Value = V end, Callback = function() if Modules.Aimbot then Modules.Aimbot.Toggle(CatstarState) end end}},
-    {Type = "Toggle",   Module = "Aimbot",            Args = {Title = "Team Check", Binding = CatstarState.Toggles.TeamCheck, Value = CatstarState.Toggles.TeamCheck.Value, Callback = function(V) CatstarState.Toggles.TeamCheck.Value = V end}},
-    {Type = "Toggle",   Module = "Reach",             Args = {Title = "Front Dash Reach", Binding = CatstarState.Toggles.Reach, Value = CatstarState.Toggles.Reach.Value, Callback = function(V) CatstarState.Toggles.Reach.Value = V end}},
-    {Type = "Slider",   Module = "Reach",             Args = {Title = "Reach Distance", Binding = CatstarState.Variables.Reach, Step = 1, Value = {Min = 1, Max = 15, Default = CatstarState.Variables.Reach.Value}, Callback = function(V) CatstarState.Variables.Reach.Value = V end}},
+    {Type = "Keybind", Module = "Aimbot", Args = {
+        Title = "Aimbot Keybind", Binding = CatstarState.Variables.AimbotKey,
+        Value = CatstarState.Variables.AimbotKey.Value,
+        OnChanged = function(V) CatstarState.Variables.AimbotKey.Value = V end,
+        Callback = function() if Modules.Aimbot then Modules.Aimbot.Toggle(CatstarState) end end,
+    }},
+    Toggle("Team Check", "TeamCheck", "Aimbot"),
+    Toggle("Front Dash Reach", "Reach", "Reach"),
+    {Type = "Slider",   Module = "Reach", Args = {
+        Title = "Reach Distance", Binding = CatstarState.Variables.Reach,
+        Step = 1, Value = {Min = 1, Max = 15, Default = CatstarState.Variables.Reach.Value},
+        Callback = function(V) CatstarState.Variables.Reach.Value = V end,
+    }},
 
     {Type = "Section", Args = {Title = "Movement & Protection"}},
-    {Type = "Toggle",   Module = "Noclip",            Args = {Title = "Noclip through Players", Binding = CatstarState.Toggles.Noclip, Value = CatstarState.Toggles.Noclip.Value, Callback = function(V) CatstarState.Toggles.Noclip.Value = V end}},
-    {Type = "Toggle",   Module = "AntiVoid",          Args = {Title = "Anti Void", Binding = CatstarState.Toggles.AntiVoid, Value = CatstarState.Toggles.AntiVoid.Value, Callback = function(V) CatstarState.Toggles.AntiVoid.Value = V end}},
-    {Type = "Toggle",   Module = "AntiBlackhole",     Args = {Title = "Anti Blackhole", Binding = CatstarState.Toggles.AntiBlackhole, Value = CatstarState.Toggles.AntiBlackhole.Value, Callback = function(V) CatstarState.Toggles.AntiBlackhole.Value = V end}},
+    Toggle("Noclip through Players", "Noclip", "Noclip"),
+    Toggle("Anti Void", "AntiVoid", "AntiVoid"),
+    Toggle("Anti Blackhole", "AntiBlackhole", "AntiBlackhole"),
 
     {Type = "Section", Args = {Title = "Player ESP"}},
-    {Type = "Toggle",   Module = "ESP",               Args = {Title = "Player ESP", Binding = CatstarState.Toggles.ESP, Value = CatstarState.Toggles.ESP.Value, Callback = function(V) CatstarState.Toggles.ESP.Value = V end}},
-    {Type = "Toggle",   Args = {Title = "Tracers", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.Tracers, Value = CatstarState.Toggles.Tracers.Value, Callback = function(V) CatstarState.Toggles.Tracers.Value = V end}},
-    {Type = "Toggle",   Args = {Title = "Player Info", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.PlayerInfo, Value = CatstarState.Toggles.PlayerInfo.Value, Callback = function(V) CatstarState.Toggles.PlayerInfo.Value = V end}},
-    {Type = "Toggle",   Args = {Title = "Health Bar", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.HealthBar, Value = CatstarState.Toggles.HealthBar.Value, Callback = function(V) CatstarState.Toggles.HealthBar.Value = V end}},
-    {Type = "Toggle",   Args = {Title = "Evade Bar", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.EvadeBar, Value = CatstarState.Toggles.EvadeBar.Value, Callback = function(V) CatstarState.Toggles.EvadeBar.Value = V end}},
-    {Type = "Toggle",   Args = {Title = "Ultimate Bar", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.UltimateBar, Value = CatstarState.Toggles.UltimateBar.Value, Callback = function(V) CatstarState.Toggles.UltimateBar.Value = V end}},
-    {Type = "Toggle",   Args = {Title = "Special Meter", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.SpecialMeter, Value = CatstarState.Toggles.SpecialMeter.Value, Callback = function(V) CatstarState.Toggles.SpecialMeter.Value = V end}},
-    {Type = "Toggle",   Args = {Title = "Moveset Cooldowns", Parent = CatstarState.Toggles.ESP, Binding = CatstarState.Toggles.Moveset, Value = CatstarState.Toggles.Moveset.Value, Callback = function(V) CatstarState.Toggles.Moveset.Value = V end}},
+    Toggle("Player ESP", "ESP", "ESP"),
+    Toggle("Tracers", "Tracers", nil, "ESP"),
+    Toggle("Player Info", "PlayerInfo", nil, "ESP"),
+    Toggle("Health Bar", "HealthBar", nil, "ESP"),
+    Toggle("Evade Bar", "EvadeBar", nil, "ESP"),
+    Toggle("Ultimate Bar", "UltimateBar", nil, "ESP"),
+    Toggle("Special Meter", "SpecialMeter", nil, "ESP"),
+    Toggle("Moveset Cooldowns", "Moveset", nil, "ESP"),
 
     {Type = "Section", Args = {Title = "NPC ESP"}},
-    {Type = "Toggle", Module = "NPCESP", Args = {Title = "NPC Owner ESP", Binding = CatstarState.Toggles.NPCOwnerESP, Value = CatstarState.Toggles.NPCOwnerESP.Value, Callback = function(V) CatstarState.Toggles.NPCOwnerESP.Value = V end}},
-    {Type = "Toggle", Module = "NPCESP", Args = {Title = "Transfigured Human", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCTransfiguredHuman, Value = CatstarState.Toggles.NPCTransfiguredHuman.Value, Callback = function(V) CatstarState.Toggles.NPCTransfiguredHuman.Value = V end}},
-    {Type = "Toggle", Module = "NPCESP", Args = {Title = "KuroClone", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCKuroClone, Value = CatstarState.Toggles.NPCKuroClone.Value, Callback = function(V) CatstarState.Toggles.NPCKuroClone.Value = V end}},
-    {Type = "Toggle", Module = "NPCESP", Args = {Title = "Haruta Sword NPC", Parent = CatstarState.Toggles.NPCOwnerESP, Binding = CatstarState.Toggles.NPCHarutaSword, Value = CatstarState.Toggles.NPCHarutaSword.Value, Callback = function(V) CatstarState.Toggles.NPCHarutaSword.Value = V end}},
-    {Type = "Toggle", Module = "NPCESP", Args = {Title = "Haruta Sword ESP", Binding = CatstarState.Toggles.HarutaSwordESP, Value = CatstarState.Toggles.HarutaSwordESP.Value, Callback = function(V) CatstarState.Toggles.HarutaSwordESP.Value = V end}},
+    Toggle("NPC Owner ESP", "NPCOwnerESP", "NPCESP"),
+    Toggle("Transfigured Human", "NPCTransfiguredHuman", "NPCESP", "NPCOwnerESP"),
+    Toggle("KuroClone", "NPCKuroClone", "NPCESP", "NPCOwnerESP"),
+    Toggle("Haruta Sword NPC", "NPCHarutaSword", "NPCESP", "NPCOwnerESP"),
+    Toggle("Haruta Sword ESP", "HarutaSwordESP", "NPCESP"),
 
     {Type = "Section", Args = {Title = "World ESP"}},
-    {Type = "Toggle",   Module = "BeamESP", Args = {Title = "Beam ESP", Binding = CatstarState.Toggles.BeamESP, Value = CatstarState.Toggles.BeamESP.Value, Callback = function(V) CatstarState.Toggles.BeamESP.Value = V end}},
-    {Type = "Toggle",   Module = "DomainESP",         Args = {Title = "Domain ESP", Binding = CatstarState.Toggles.DomainESP, Value = CatstarState.Toggles.DomainESP.Value, Callback = function(V) CatstarState.Toggles.DomainESP.Value = V end}},
-    {Type = "Toggle",   Module = "DummyESP",          Args = {Title = "Dummy ESP", Binding = CatstarState.Toggles.DummyESP, Value = CatstarState.Toggles.DummyESP.Value, Callback = function(V) CatstarState.Toggles.DummyESP.Value = V end}},
-    {Type = "Toggle",   Module = "ItemESP",           Args = {Title = "Item ESP", Binding = CatstarState.Toggles.ItemESP, Value = CatstarState.Toggles.ItemESP.Value, Callback = function(V) CatstarState.Toggles.ItemESP.Value = V end}},
+    Toggle("Beam ESP", "BeamESP", "BeamESP"),
+    Toggle("Domain ESP", "DomainESP", "DomainESP"),
+    Toggle("Dummy ESP", "DummyESP", "DummyESP"),
+    Toggle("Item ESP", "ItemESP", "ItemESP"),
 
     {Type = "Section", Args = {Title = "Roulette"}},
-    {Type = "Toggle",   Module = "RouletteAutoCharacter", Args = {Title = "Auto Character", Binding = CatstarState.Toggles.RouletteAutoCharacter, Value = CatstarState.Toggles.RouletteAutoCharacter.Value, Callback = function(V) CatstarState.Toggles.RouletteAutoCharacter.Value = V end}},
+    Toggle("Auto Character", "RouletteAutoCharacter", "RouletteAutoCharacter"),
 
     {Type = "Section", Args = {Title = "Emotes & Unlocks"}},
-    {Type = "Toggle",   Module = "Gamepasses",        Args = {Title = "Free Gamepasses", Binding = CatstarState.Toggles.Gamepasses, Value = CatstarState.Toggles.Gamepasses.Value, Callback = function(V) CatstarState.Toggles.Gamepasses.Value = V end}},
+    Toggle("Free Gamepasses", "Gamepasses", "Gamepasses"),
     {Type = "Button", Module = "Gamepasses", Args = {Title = "Calibrate Second Emotes", Parent = CatstarState.Toggles.Gamepasses, Callback = function()
         Window:SetStatus("Calibrating second-page emotes...")
         local Success, Message = Modules.Gamepasses.Calibrate(CatstarState)
@@ -321,27 +346,43 @@ local UiLayout = {
         end
         Window:SetStatus(Message)
     end}},
-    {Type = "Toggle",   Module = "DiamondInTheSky",   Args = {Title = "Faster Diamond In The Sky", Binding = CatstarState.Toggles.DiamondInTheSky, Value = CatstarState.Toggles.DiamondInTheSky.Value, Callback = function(V) CatstarState.Toggles.DiamondInTheSky.Value = V end}},
-    {Type = "Slider",   Module = "DiamondInTheSky",   Args = {Title = "Diamond In The Sky Speed", Binding = CatstarState.Variables.SpeedMultiplier, Step = 1, Value = {Min = 1, Max = 50, Default = CatstarState.Variables.SpeedMultiplier.Value}, Callback = function(V) CatstarState.Variables.SpeedMultiplier.Value = V end}},
-    {Type = "Toggle",   Module = "KillSound",         Args = {Title = "Free Kill Sound", Binding = CatstarState.Toggles.KillSound, Value = CatstarState.Toggles.KillSound.Value, Callback = function(V) CatstarState.Toggles.KillSound.Value = V end}},
+    Toggle("Faster Diamond In The Sky", "DiamondInTheSky", "DiamondInTheSky"),
+    {Type = "Slider",   Module = "DiamondInTheSky", Args = {
+        Title = "Diamond In The Sky Speed", Binding = CatstarState.Variables.SpeedMultiplier,
+        Step = 1, Value = {Min = 1, Max = 50, Default = CatstarState.Variables.SpeedMultiplier.Value},
+        Callback = function(V) CatstarState.Variables.SpeedMultiplier.Value = V end,
+    }},
+    Toggle("Free Kill Sound", "KillSound", "KillSound"),
 
     {Type = "Section", Args = {Title = "Chat"}},
-    {Type = "Toggle",   Module = "Aura",              Args = {Title = "Message Aura", Binding = CatstarState.Toggles.MsgAura, Value = CatstarState.Toggles.MsgAura.Value, Callback = function(V) CatstarState.Toggles.MsgAura.Value = V end}},
+    Toggle("Message Aura", "MsgAura", "Aura"),
 
     {Type = "Section", Args = {Title = "Notifications"}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Notifications", Binding = CatstarState.Toggles.Notifications, Value = CatstarState.Toggles.Notifications.Value, Callback = function(V) CatstarState.Toggles.Notifications.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Joins", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyJoins, Value = CatstarState.Toggles.NotifyJoins.Value, Callback = function(V) CatstarState.Toggles.NotifyJoins.Value = V end}},
-    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Join scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyJoinScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyJoinScope.Value, Callback = function(V) CatstarState.Variables.NotifyJoinScope.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Leaves", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyLeaves, Value = CatstarState.Toggles.NotifyLeaves.Value, Callback = function(V) CatstarState.Toggles.NotifyLeaves.Value = V end}},
-    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Leave scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyLeaveScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyLeaveScope.Value, Callback = function(V) CatstarState.Variables.NotifyLeaveScope.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Deaths", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyDeaths, Value = CatstarState.Toggles.NotifyDeaths.Value, Callback = function(V) CatstarState.Toggles.NotifyDeaths.Value = V end}},
-    {Type = "Dropdown", Module = "Notifications", Args = {Title = "Death scope", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Variables.NotifyDeathScope, Options = {"Friends", "Group", "Friends + Group"}, Value = CatstarState.Variables.NotifyDeathScope.Value, Callback = function(V) CatstarState.Variables.NotifyDeathScope.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate starts", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUlts, Value = CatstarState.Toggles.NotifyUlts.Value, Callback = function(V) CatstarState.Toggles.NotifyUlts.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Ultimate ends", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyUnults, Value = CatstarState.Toggles.NotifyUnults.Value, Callback = function(V) CatstarState.Toggles.NotifyUnults.Value = V end}},
-    {Type = "Toggle",   Module = "Notifications", Args = {Title = "Emote spending", Parent = CatstarState.Toggles.Notifications, Binding = CatstarState.Toggles.NotifyBuys, Value = CatstarState.Toggles.NotifyBuys.Value, Callback = function(V) CatstarState.Toggles.NotifyBuys.Value = V end}},
+    Toggle("Notifications", "Notifications", "Notifications"),
+    Toggle("Joins", "NotifyJoins", "Notifications", "Notifications"),
+    {Type = "Dropdown", Module = "Notifications", Args = {
+        Title = "Join scope", Parent = CatstarState.Toggles.Notifications,
+        Binding = CatstarState.Variables.NotifyJoinScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"},
+        Value = CatstarState.Variables.NotifyJoinScope.Value, Callback = function(V) CatstarState.Variables.NotifyJoinScope.Value = V end,
+    }},
+    Toggle("Leaves", "NotifyLeaves", "Notifications", "Notifications"),
+    {Type = "Dropdown", Module = "Notifications", Args = {
+        Title = "Leave scope", Parent = CatstarState.Toggles.Notifications,
+        Binding = CatstarState.Variables.NotifyLeaveScope, Options = {"Everyone", "Friends", "Group", "Friends + Group"},
+        Value = CatstarState.Variables.NotifyLeaveScope.Value, Callback = function(V) CatstarState.Variables.NotifyLeaveScope.Value = V end,
+    }},
+    Toggle("Deaths", "NotifyDeaths", "Notifications", "Notifications"),
+    {Type = "Dropdown", Module = "Notifications", Args = {
+        Title = "Death scope", Parent = CatstarState.Toggles.Notifications,
+        Binding = CatstarState.Variables.NotifyDeathScope, Options = {"Friends", "Group", "Friends + Group"},
+        Value = CatstarState.Variables.NotifyDeathScope.Value, Callback = function(V) CatstarState.Variables.NotifyDeathScope.Value = V end,
+    }},
+    Toggle("Ultimate starts", "NotifyUlts", "Notifications", "Notifications"),
+    Toggle("Ultimate ends", "NotifyUnults", "Notifications", "Notifications"),
+    Toggle("Emote spending", "NotifyBuys", "Notifications", "Notifications"),
 
     {Type = "Section", Args = {Title = "Utilities"}},
-    {Type = "Toggle",   Module = "InstantInteract",   Args = {Title = "Instant Interact", Binding = CatstarState.Toggles.InstantInteract, Value = CatstarState.Toggles.InstantInteract.Value, Callback = function(V) CatstarState.Toggles.InstantInteract.Value = V end}},
+    Toggle("Instant Interact", "InstantInteract", "InstantInteract"),
     {Type = "Button",   Module = "Train",            InitArg = "Component", Args = {Title = "Spawn Train", Callback = function() if Modules.Train then Modules.Train.Clicked() end end}},
     {Type = "Button",   Module = "Rejoin",           InitName = "None", Args = {Title = "Rejoin Server", Callback = function() if Modules.Rejoin then Modules.Rejoin.Clicked() end end}},
 
@@ -390,50 +431,50 @@ for _, Element in ipairs(UiLayout) do
     if Element.Type == "Section" then
         Section = Window:AddSection(Element.Args.Title)
     else
-    local Component = Window:AddControl(Section, Element.Type, Element.Args, Element.InitArg == "Component")
-    local TargetModule = Element.Module
-    local Children = TargetModule == "BlackFlash" and Modules.BlackFlash and AddBlackFlashOptions(Modules.BlackFlash, Section) or {}
-    if TargetModule then
-        Pending = Pending + 1
-        Component:SetEnabled(false)
-        task.spawn(function()
-            while not Modules[TargetModule] and not ModuleFailed[TargetModule] do task.wait() end
-            local Mod = Modules[TargetModule]
-            local RunName = Element.InitName or "Init"
-            if Mod and RunName ~= "None" then
-                if not InitializedModules[TargetModule] then
-                    InitializedModules[TargetModule] = "Loading"
-                    local Success, Error = xpcall(function()
-                        assert(type(Mod) == "table" and type(Mod[RunName]) == "function", "Missing " .. RunName)
-                        if Element.InitArg == "Component" then Mod[RunName](Component, CatstarState)
-                        else Mod[RunName](CatstarState) end
-                        if TargetModule == "RouletteAutoCharacter" then
-                            local Options = {"None"}
-                            for _, Name in ipairs(Mod.Characters) do Options[#Options + 1] = Name end
-                            for _, Mode in ipairs(Mod.Modes) do
-                                local Key = Mode.Name:upper()
-                                RouletteControls[Key] = Window:AddControl(Window.Sections.Roulette, "Dropdown", {Title = Mode.Name, Options = Options,
-                                    Value = table.find(Options, CatstarState.RouletteCharacters[Key]) and CatstarState.RouletteCharacters[Key] or "None",
-                                    Callback = function(Name)
-                                        CatstarState.RouletteCharacters[Key] = Name ~= "None" and Name or nil
-                                        if Config then Config:Set("RouletteCharacters", Key, CatstarState.RouletteCharacters[Key]) end
-                                    end})
+        local Component = Window:AddControl(Section, Element.Type, Element.Args, Element.InitArg == "Component")
+        local TargetModule = Element.Module
+        local Children = TargetModule == "BlackFlash" and Modules.BlackFlash and AddBlackFlashOptions(Modules.BlackFlash, Section) or {}
+        if TargetModule then
+            Pending = Pending + 1
+            Component:SetEnabled(false)
+            task.spawn(function()
+                while not Modules[TargetModule] and not ModuleFailed[TargetModule] do task.wait() end
+                local Mod = Modules[TargetModule]
+                local RunName = Element.InitName or "Init"
+                if Mod and RunName ~= "None" then
+                    if not InitializedModules[TargetModule] then
+                        InitializedModules[TargetModule] = "Loading"
+                        local Success, Error = xpcall(function()
+                            assert(type(Mod) == "table" and type(Mod[RunName]) == "function", "Missing " .. RunName)
+                            if Element.InitArg == "Component" then Mod[RunName](Component, CatstarState)
+                            else Mod[RunName](CatstarState) end
+                            if TargetModule == "RouletteAutoCharacter" then
+                                local Options = {"None"}
+                                for _, Name in ipairs(Mod.Characters) do Options[#Options + 1] = Name end
+                                for _, Mode in ipairs(Mod.Modes) do
+                                    local Key = Mode.Name:upper()
+                                    RouletteControls[Key] = Window:AddControl(Window.Sections.Roulette, "Dropdown", {Title = Mode.Name, Options = Options,
+                                        Value = table.find(Options, CatstarState.RouletteCharacters[Key]) and CatstarState.RouletteCharacters[Key] or "None",
+                                        Callback = function(Name)
+                                            CatstarState.RouletteCharacters[Key] = Name ~= "None" and Name or nil
+                                            if Config then Config:Set("RouletteCharacters", Key, CatstarState.RouletteCharacters[Key]) end
+                                        end})
+                                end
                             end
-                        end
-                    end, debug.traceback)
-                    InitializedModules[TargetModule] = Success and "Ready" or "Failed"
-                    if not Success then warn(TargetModule .. ": " .. tostring(Error)) end
-                else
-                    while InitializedModules[TargetModule] == "Loading" do task.wait() end
+                        end, debug.traceback)
+                        InitializedModules[TargetModule] = Success and "Ready" or "Failed"
+                        if not Success then warn(TargetModule .. ": " .. tostring(Error)) end
+                    else
+                        while InitializedModules[TargetModule] == "Loading" do task.wait() end
+                    end
                 end
-            end
-            local Ready = Mod ~= nil and InitializedModules[TargetModule] ~= "Failed"
-            Component:SetEnabled(Ready)
-            for _, Child in ipairs(Children) do Child:SetEnabled(Ready) end
-            if not Ready then Failures[TargetModule] = true end
-            Pending = Pending - 1
-        end)
-    end
+                local Ready = Mod ~= nil and InitializedModules[TargetModule] ~= "Failed"
+                Component:SetEnabled(Ready)
+                for _, Child in ipairs(Children) do Child:SetEnabled(Ready) end
+                if not Ready then Failures[TargetModule] = true end
+                Pending = Pending - 1
+            end)
+        end
     end
 end
 Window:Refresh()
@@ -445,5 +486,3 @@ task.spawn(function()
     table.sort(Names)
     Window:SetStatus(#Names == 0 and "Ready" or ("Failed: " .. table.concat(Names, ", ")))
 end)
-
-

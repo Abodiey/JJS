@@ -10,7 +10,7 @@
 ## Where to edit
 | Request | Files / symbols |
 | --- | --- |
-| Feature UI, defaults, module registration | main.lua: UiLayout, ModuleList, VariableDefaults, Ranges |
+| Feature UI, defaults, module registration | main.lua: UiLayout, Toggle, ModuleList, ESPFeatures, VariableDefaults, Ranges |
 | UI integration / settings bridge | Interface.lua; runtime UI comes from Abodiey/iris-drawing-ui dist/Iris.lua |
 | Config | Config.lua; main.lua: BindToFolder |
 | Loader or bundling | loader.lua, tools/bundle.py, .github/workflows/bundle.yml |
